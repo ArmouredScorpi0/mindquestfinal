@@ -1131,9 +1131,11 @@ const Onboarding = () => {
             alignItems: 'center',
             justifyContent: 'center',
             minHeight: '100vh',
+            width: '100vw', // Fix: Ensure full width
             background: 'linear-gradient(to bottom right, #111827, #1e3a8a, #4f46e5)',
             padding: '1rem',
             color: 'white',
+            boxSizing: 'border-box',
         },
         card: {
             backgroundColor: 'rgba(31, 41, 55, 0.6)',
@@ -3377,7 +3379,7 @@ const MindQuestApp = () => {
         document.head.appendChild(link);
     }, []);
 
-    if (loading) return <div style={{minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#111827'}}><p style={{fontSize: '1.25rem', fontWeight: '600', color: 'white'}}>Loading your world...</p></div>;
+    if (loading) return <div style={{minHeight: '100vh', width: '100vw', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#111827'}}><p style={{fontSize: '1.25rem', fontWeight: '600', color: 'white'}}>Loading your world...</p></div>;
     if (!userData) return <Onboarding />;
 
     const pageVariants = { initial: { opacity: 0 }, in: { opacity: 1 }, out: { opacity: 0 } };
@@ -3412,6 +3414,7 @@ const MindQuestApp = () => {
         mainContainer: {
             fontFamily: "'Inter', sans-serif",
             minHeight: '100vh',
+            width: '100vw', // Fix: Ensure full width
             backgroundColor: '#111827', // Base background to prevent white flash
         },
         nav: {
