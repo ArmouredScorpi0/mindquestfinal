@@ -1483,7 +1483,11 @@ const DailyQuestScreen = () => {
 // JournalPage displays all the user's journal entries.
 const JournalPage = () => {
     const { userData, openJournalDetail, openNewJournalEntry } = useGame();
-    const journalEntries = safeArray(userData.journal);
+    // Ensure entries are sorted by date, most recent first.
+    const journalEntries = useMemo(() => 
+        safeArray(userData.journal).sort((a, b) => new Date(b.date) - new Date(a.date)),
+        [userData.journal]
+    );
 
     const styles = {
         container: { maxWidth: '48rem', margin: '0 auto' },
@@ -1497,31 +1501,42 @@ const JournalPage = () => {
             padding: '0.75rem 1.5rem', borderRadius: '0.5rem', border: 'none',
             cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem'
         },
-        grid: {
-            display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+        list: { // Changed from grid to list
+            display: 'flex',
+            flexDirection: 'column',
             gap: '1.5rem'
         },
         entryCard: {
             backgroundColor: 'rgba(31, 41, 55, 0.6)', backdropFilter: 'blur(10px)',
             padding: '1.5rem', borderRadius: '0.75rem', color: 'white',
             cursor: 'pointer', transition: 'transform 0.2s, box-shadow 0.2s',
-            width: '100%', // Ensure card fills grid cell
-            boxSizing: 'border-box', // Include padding in width calculation
-            display: 'flex', // Use flexbox to fill height
-            flexDirection: 'column', // Stack content vertically
+            width: '100%',
+            boxSizing: 'border-box',
         },
         entryCardHover: {
             transform: 'translateY(-5px)',
             boxShadow: '0 10px 15px -3px rgba(139, 92, 246, 0.2), 0 4px 6px -2px rgba(139, 92, 246, 0.1)'
         },
-        entryDate: { fontSize: '0.875rem', color: '#9ca3af', marginBottom: '0.5rem' },
+        dateContainer: {
+             marginBottom: '0.75rem',
+        },
+        dateText: { 
+            fontSize: '0.875rem', 
+            color: '#9ca3af', 
+            fontWeight: '600'
+        },
+        timeText: {
+            fontSize: '0.75rem',
+            color: '#6b7280',
+        },
         entrySnippet: {
             color: '#d1d5db',
             overflow: 'hidden',
             textOverflow: 'ellipsis',
             display: '-webkit-box',
-            WebkitLineClamp: 3,
-            WebkitBoxOrient: 'vertical'
+            WebkitLineClamp: 4,
+            WebkitBoxOrient: 'vertical',
+            lineHeight: 1.6
         },
         noEntries: {
             textAlign: 'center', color: '#9ca3af',
@@ -1532,6 +1547,10 @@ const JournalPage = () => {
 
     const EntryCard = ({ entry }) => {
         const [isHovered, setIsHovered] = useState(false);
+        const entryDate = new Date(entry.date);
+        const formattedDate = entryDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
+        const formattedTime = entryDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+
         return (
             <div 
                 style={{...styles.entryCard, ...(isHovered && styles.entryCardHover)}}
@@ -1539,7 +1558,10 @@ const JournalPage = () => {
                 onMouseEnter={() => setIsHovered(true)}
                 onMouseLeave={() => setIsHovered(false)}
             >
-                <p style={styles.entryDate}>{new Date(entry.date).toLocaleDateString()}</p>
+                <div style={styles.dateContainer}>
+                    <p style={styles.dateText}>{formattedDate}</p>
+                    <p style={styles.timeText}>{formattedTime}</p>
+                </div>
                 <p style={styles.entrySnippet}>{entry.entry}</p>
             </div>
         );
@@ -1555,7 +1577,7 @@ const JournalPage = () => {
                     </button>
                 </div>
                 {journalEntries.length > 0 ? (
-                    <div style={styles.grid}>
+                    <div style={styles.list}>
                         {journalEntries.map(entry => <EntryCard key={entry.id} entry={entry} />)}
                     </div>
                 ) : (
