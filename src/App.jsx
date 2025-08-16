@@ -247,10 +247,13 @@ const GameProvider = ({ children }) => {
         }
     };
 
+    // --- FIX 1: Streamlined the journal edit flow ---
+    // This function now closes the detail modal as well, taking the user directly to the edit screen.
     const confirmEditJournal = () => {
         if (!entryToEdit) return;
         setJournalContext({ source: entryToEdit.source, mood: entryToEdit.mood });
         closeModal('isEditConfirmOpen');
+        closeModal('isJournalDetailOpen'); // This line was added
         openModal('isJournalOpen');
     };
 
@@ -1151,7 +1154,12 @@ const Onboarding = () => {
         }
     };
     
+    // --- FIX 2: Added validation to prevent moving to the next step with a blank name ---
     const handleNextStep = () => {
+        if (step === 1 && !displayName.trim()) {
+            toast.error("Please enter a name to continue.");
+            return; // Stop the function here if the name is blank
+        }
         if (step < 3) {
             setStep(s => s + 1);
         } else {
