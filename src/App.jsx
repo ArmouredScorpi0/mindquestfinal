@@ -3,7 +3,7 @@ import { initializeApp } from 'firebase/app';
 import { getAuth, onAuthStateChanged, signInAnonymously, signInWithCustomToken } from 'firebase/auth';
 import { getFirestore, doc, setDoc, onSnapshot, updateDoc } from 'firebase/firestore';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { Smile, Frown, Meh, Laugh, Angry, Home, LayoutDashboard, BookText, X, PlusCircle, ChevronDown, ChevronUp, MoreVertical, Edit, Trash2, Map, Shield, Zap, Wind, ArrowLeft, Dumbbell, Lock, Star, CheckCircle, ClipboardCheck, Droplets, Sparkles } from 'lucide-react';
+import { Smile, Frown, Meh, Laugh, Angry, Home, LayoutDashboard, BookText, X, PlusCircle, ChevronDown, ChevronUp, MoreVertical, Edit, Trash2, Map, Shield, Zap, Wind, ArrowLeft, Dumbbell, Lock, Star, CheckCircle, ClipboardCheck, Droplets, Sparkles, HeartHandshake } from 'lucide-react';
 import { Toaster, toast } from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -549,10 +549,10 @@ const GameProvider = ({ children }) => {
                     completedTasksHistory: updatedHistory,
                     unlockedNodes: updatedUnlockedNodes
                 });
-                toast.success("All small tasks complete! Your Big Quest on the map is unlocked!");
+                // Consolidated notification: The NodeUnlockModal is now the primary feedback.
                 
                 if (userData.hydration?.level < 8) {
-                    toast("Hydration Boost! +1 glass of water.", { icon: '✨' });
+                    // This hydration boost is now silent to reduce pop-ups.
                     await logWaterIntake(true);
                 }
 
@@ -762,9 +762,60 @@ const GameProvider = ({ children }) => {
         try {
             const userRef = doc(db, 'artifacts', appId, 'users', user.uid);
             await updateDoc(userRef, updates);
+            checkLowMoodPattern(updates.moodHistory);
         } catch (error) {
             console.error("Error recording mood:", error);
             toast.error("Could not save your mood.");
+        }
+    };
+    
+    const checkLowMoodPattern = async (moodHistory) => {
+        if (!moodHistory || moodHistory.length < 3) return;
+
+        const lastSupportDate = userData.lastSupportMessageDate;
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+        if (lastSupportDate && new Date(lastSupportDate) > sevenDaysAgo) {
+            return; // Don't show the message if it was shown recently.
+        }
+
+        const recentEntries = moodHistory.slice(0, 3);
+        const uniqueDays = new Set(recentEntries.map(e => e.date.split('T')[0]));
+
+        const isLowMood = (mood) => mood <= 2; // Angry or Down
+        const allRecentMoodsAreLow = recentEntries.every(e => isLowMood(e.mood));
+
+        if (allRecentMoodsAreLow && uniqueDays.size >= 3) {
+            toast.custom((t) => (
+                <motion.div
+                    initial={{ opacity: 0, y: -20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 20 }}
+                    style={{
+                        maxWidth: '24rem', width: '100%', backgroundColor: '#374151', color: 'white',
+                        boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+                        borderRadius: '0.75rem', pointerEvents: 'auto', display: 'flex', alignItems: 'flex-start', padding: '1rem', gap: '1rem'
+                    }}
+                >
+                    <HeartHandshake size={24} style={{ color: '#a78bfa', flexShrink: 0, marginTop: '0.25rem' }} />
+                    <div style={{ flexGrow: 1 }}>
+                        <p style={{ fontWeight: '600', marginBottom: '0.25rem' }}>You're Not Alone</p>
+                        <p style={{ fontSize: '0.875rem', color: '#d1d5db', marginBottom: '0.75rem' }}>
+                            It looks like things have been tough lately. If talking to someone could help, here are some resources.
+                        </p>
+                        <a href="https://www.who.int/health-topics/mental-health" target="_blank" rel="noopener noreferrer" style={{ color: '#c4b5fd', fontWeight: 'bold', textDecoration: 'underline' }}>
+                            Find Support
+                        </a>
+                    </div>
+                    <button onClick={() => toast.dismiss(t.id)} style={{ background: 'none', border: 'none', color: '#9ca3af' }}>
+                        <X size={20} />
+                    </button>
+                </motion.div>
+            ), { id: 'support-toast', duration: Infinity });
+
+            const userRef = doc(db, 'artifacts', appId, 'users', user.uid);
+            await updateDoc(userRef, { lastSupportMessageDate: new Date().toISOString() });
         }
     };
 
@@ -1073,6 +1124,7 @@ const Onboarding = () => {
             streak: 0,
             lastQuestDate: null,
             lastMoodDate: null,
+            lastSupportMessageDate: null,
             journal: [],
             moodHistory: [],
             completedNodes: [],
