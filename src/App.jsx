@@ -251,30 +251,26 @@ const GameProvider = ({ children }) => {
     const audioRef = useRef(null);
     const originalVolumeRef = useRef(volume);
 
-    // Toast wrapper for audio ducking
-    const showToast = (type, message, options = {}) => {
+    // FIX: Correctly implement toast wrapper for audio ducking
+    const showToast = (type, message, options) => {
         if (audioRef.current && isPlaying) {
             originalVolumeRef.current = audioRef.current.volume;
             audioRef.current.volume = originalVolumeRef.current * 0.5; // Duck volume
         }
 
-        const promise = toast[type](message, options);
-        
-        // Use a promise to handle when the toast is closed, either by timeout or manually
-        promise.then(
-            () => { // on fulfilled (closed)
-                if (audioRef.current && isPlaying) {
-                     audioRef.current.volume = originalVolumeRef.current; // Restore volume
-                }
-            },
-            () => { // on rejected (should not happen with regular toasts)
-                 if (audioRef.current && isPlaying) {
-                    audioRef.current.volume = originalVolumeRef.current;
-                }
-            }
-        );
-    };
+        // The toast function itself doesn't return a promise. We use the promise from the toast call.
+        toast[type](message, {
+            ...options,
+            duration: options.duration || 4000
+        });
 
+        // Restore volume after the toast duration
+        setTimeout(() => {
+             if (audioRef.current && isPlaying) {
+                audioRef.current.volume = originalVolumeRef.current;
+            }
+        }, options.duration || 4000);
+    };
 
     const openModal = (modalName) => setModalState(prev => ({ ...prev, [modalName]: true }));
     const closeModal = (modalName) => setModalState(prev => ({ ...prev, [modalName]: false }));
@@ -785,7 +781,7 @@ const GameProvider = ({ children }) => {
             setJournalContext({ source: 'mood', mood: moodValue, prompt: moodProps.prompt });
             openModal('isJournalOpen');
         };
-        showToast('custom', (t) => (
+        toast.custom((t) => (
             <motion.div initial={{opacity: 0, y: -20}} animate={{opacity: 1, y: 0}} exit={{opacity: 0, y: -20}} style={{maxWidth: '28rem', width: '100%', backgroundColor: 'white', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)', borderRadius: '0.5rem', pointerEvents: 'auto', display: 'flex', ring: '1px solid rgba(0, 0, 0, 0.05)'}}>
                 <div style={{flex: '1 1 0%', width: '0', padding: '1rem'}}><p style={{fontSize: '0.875rem', fontWeight: '500', color: '#1f2937'}}>{moodProps.prompt}</p></div>
                 <div style={{display: 'flex', borderLeft: '1px solid #e5e7eb'}}><button onClick={() => {toast.dismiss(t.id); openJournal();}} style={{width: '100%', border: '1px solid transparent', borderRadius: '0', borderTopRightRadius: '0.5rem', borderBottomRightRadius: '0.5rem', padding: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.875rem', fontWeight: '500', color: '#4f46e5', cursor: 'pointer'}}>Journal</button></div>
@@ -3591,8 +3587,6 @@ const MindQuestApp = () => {
                 </motion.div>
             </AnimatePresence>
             
-            <SoundscapePlayer />
-
             {selectedNode && <NodeModal node={selectedNode} onClose={() => setSelectedNode(null)} />}
 
             <AnimatePresence>
@@ -3630,7 +3624,7 @@ export default function App() {
             <GameProvider>
                 <Toaster position="top-center" reverseOrder={false} />
                 <MindQuestApp />
-                {/* The actual audio element is controlled via context */}
+                <SoundscapePlayer />
                 <AudioElement /> 
             </GameProvider>
         </AuthProvider>
@@ -3642,3 +3636,4 @@ const AudioElement = () => {
     const { audioRef, currentTrackIndex } = useGame();
     return <audio ref={audioRef} src={soundscapes[currentTrackIndex].url} loop={false} />;
 }
+
