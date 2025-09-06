@@ -249,12 +249,6 @@ const GameProvider = ({ children }) => {
     const [volume, setVolume] = useState(0.2);
     const [isPlayerOpen, setIsPlayerOpen] = useState(false);
     const audioRef = useRef(null);
-    const originalVolumeRef = useRef(volume);
-
-    // FIX: Simplified toast wrapper. Audio ducking removed for stability.
-    const showToast = (type, message, options) => {
-        toast[type](message, options);
-    };
 
     const openModal = (modalName) => setModalState(prev => ({ ...prev, [modalName]: true }));
     const closeModal = (modalName) => setModalState(prev => ({ ...prev, [modalName]: false }));
@@ -400,7 +394,7 @@ const GameProvider = ({ children }) => {
 
         } catch (error) {
             console.error("Failed to generate or process daily content, using fallback:", error);
-            showToast("error", "The spirits are quiet... Here are some challenges.", { duration: 4000 });
+            toast.error("The spirits are quiet... Here are some challenges.", { duration: 4000 });
             
             const resilienceTask = fallbackTasksPool.resilience[Math.floor(Math.random() * fallbackTasksPool.resilience.length)];
             const focusTask = fallbackTasksPool.focus[Math.floor(Math.random() * fallbackTasksPool.focus.length)];
@@ -817,7 +811,7 @@ const GameProvider = ({ children }) => {
         const allRecentMoodsAreLow = recentEntries.every(e => isLowMood(e.mood));
 
         if (allRecentMoodsAreLow && uniqueDays.size >= 3) {
-            showToast('custom', (t) => (
+            toast.custom((t) => (
                 <motion.div
                     initial={{ opacity: 0, y: -20 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -1104,7 +1098,7 @@ const GameProvider = ({ children }) => {
 
         const twoHours = 2 * 60 * 60 * 1000;
         const timerId = setTimeout(() => {
-            showToast('custom', "Friendly reminder to drink some water!", { icon: '💧' });
+            toast("Friendly reminder to drink some water!", { icon: '💧' });
         }, twoHours);
 
         return () => clearTimeout(timerId);
@@ -1123,7 +1117,7 @@ const GameProvider = ({ children }) => {
         completeFitnessTask, getXpForNextLevel,
         logWaterIntake, generateJournalInsights,
         // Music player context
-        isPlaying, setIsPlaying, currentTrackIndex, setCurrentTrackIndex, volume, setVolume, isPlayerOpen, setIsPlayerOpen, audioRef, showToast,
+        isPlaying, setIsPlaying, currentTrackIndex, setCurrentTrackIndex, volume, setVolume, isPlayerOpen, setIsPlayerOpen, audioRef,
     };
     return <GameContext.Provider value={value}>{children}</GameContext.Provider>;
 };
@@ -3607,25 +3601,25 @@ const SoundscapePlayer = () => {
     const { isPlaying, setIsPlaying, currentTrackIndex, setCurrentTrackIndex, volume, setVolume, isPlayerOpen, setIsPlayerOpen, audioRef } = useGame();
     const currentTrack = soundscapes[currentTrackIndex];
 
+    // Effect for initializing and managing the audio player
     useEffect(() => {
         const audio = audioRef.current;
         if (!audio) return;
         
-        const playAudio = () => {
-             // Autoplay on first load
-            const playPromise = audio.play();
-            if (playPromise !== undefined) {
-                playPromise.then(_ => {
-                    setIsPlaying(true);
-                }).catch(error => {
-                    console.log("Autoplay was prevented. User interaction is needed to start music.");
-                    setIsPlaying(false);
-                });
+        const playAudio = async () => {
+            try {
+                await audio.play();
+                setIsPlaying(true);
+            } catch (error) {
+                console.log("Autoplay was prevented. User interaction is needed to start music.");
+                setIsPlaying(false);
             }
         };
 
-        // A small delay ensures the audio element is ready
-        setTimeout(playAudio, 100);
+        // Autoplay on first load
+        if(!isPlaying){
+             playAudio();
+        }
 
         const handleEnded = () => {
             setCurrentTrackIndex(prev => (prev + 1) % soundscapes.length);
@@ -3634,6 +3628,7 @@ const SoundscapePlayer = () => {
         return () => audio.removeEventListener('ended', handleEnded);
     }, []);
 
+    // Effect for changing tracks
     useEffect(() => {
         const audio = audioRef.current;
         if (audio) {
@@ -3644,6 +3639,7 @@ const SoundscapePlayer = () => {
         }
     }, [currentTrackIndex]);
 
+    // Effect for controlling volume
     useEffect(() => {
         if (audioRef.current) {
             audioRef.current.volume = volume;
@@ -3717,6 +3713,9 @@ const SoundscapePlayer = () => {
 
     return (
         <>
+            {/* The actual audio element, hidden but controlled by the player logic */}
+            <audio ref={audioRef} src={soundscapes[currentTrackIndex].url} loop={false} />
+
             <button onClick={() => setIsPlayerOpen(true)} style={styles.floatingButton}>
                 <Music size={24} />
             </button>
@@ -3770,3 +3769,4 @@ export default function App() {
         </AuthProvider>
     );
 }
+
