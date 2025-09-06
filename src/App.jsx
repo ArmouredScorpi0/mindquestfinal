@@ -246,30 +246,14 @@ const GameProvider = ({ children }) => {
     // Music Player State
     const [currentTrackIndex, setCurrentTrackIndex] = useState(0);
     const [isPlaying, setIsPlaying] = useState(false);
-    const [volume, setVolume] = useState(0.2); // Start at a soft volume
+    const [volume, setVolume] = useState(0.2);
     const [isPlayerOpen, setIsPlayerOpen] = useState(false);
     const audioRef = useRef(null);
     const originalVolumeRef = useRef(volume);
 
-    // FIX: Correctly implement toast wrapper for audio ducking
+    // FIX: Simplified toast wrapper. Audio ducking removed for stability.
     const showToast = (type, message, options) => {
-        if (audioRef.current && isPlaying) {
-            originalVolumeRef.current = audioRef.current.volume;
-            audioRef.current.volume = originalVolumeRef.current * 0.5; // Duck volume
-        }
-
-        // The toast function itself doesn't return a promise. We use the promise from the toast call.
-        toast[type](message, {
-            ...options,
-            duration: options.duration || 4000
-        });
-
-        // Restore volume after the toast duration
-        setTimeout(() => {
-             if (audioRef.current && isPlaying) {
-                audioRef.current.volume = originalVolumeRef.current;
-            }
-        }, options.duration || 4000);
+        toast[type](message, options);
     };
 
     const openModal = (modalName) => setModalState(prev => ({ ...prev, [modalName]: true }));
@@ -369,7 +353,7 @@ const GameProvider = ({ children }) => {
         `;
         
         try {
-            const apiUrl = '/api/generateContent'; // CORRECTED API URL
+            const apiUrl = '/api/generateContent';
             const payload = { contents: [{ parts: [{ text: prompt }] }] };
             
             const response = await fetch(apiUrl, {
@@ -498,7 +482,7 @@ const GameProvider = ({ children }) => {
         `;
 
         try {
-            const apiUrl = '/api/generateContent'; // CORRECTED API URL
+            const apiUrl = '/api/generateContent';
             const payload = { contents: [{ parts: [{ text: prompt }] }] };
 
             const response = await fetch(apiUrl, {
@@ -1027,7 +1011,7 @@ const GameProvider = ({ children }) => {
         `;
 
         try {
-            const apiUrl = '/api/generateContent'; // CORRECTED API URL
+            const apiUrl = '/api/generateContent';
             const payload = { contents: [{ parts: [{ text: prompt }] }] };
             
             const response = await fetch(apiUrl, {
@@ -3618,22 +3602,171 @@ const MindQuestApp = () => {
     );
 };
 
+// New Music Player Component
+const SoundscapePlayer = () => {
+    const { isPlaying, setIsPlaying, currentTrackIndex, setCurrentTrackIndex, volume, setVolume, isPlayerOpen, setIsPlayerOpen, audioRef } = useGame();
+    const currentTrack = soundscapes[currentTrackIndex];
+
+    useEffect(() => {
+        const audio = audioRef.current;
+        if (!audio) return;
+        
+        const playAudio = () => {
+             // Autoplay on first load
+            const playPromise = audio.play();
+            if (playPromise !== undefined) {
+                playPromise.then(_ => {
+                    setIsPlaying(true);
+                }).catch(error => {
+                    console.log("Autoplay was prevented. User interaction is needed to start music.");
+                    setIsPlaying(false);
+                });
+            }
+        };
+
+        // A small delay ensures the audio element is ready
+        setTimeout(playAudio, 100);
+
+        const handleEnded = () => {
+            setCurrentTrackIndex(prev => (prev + 1) % soundscapes.length);
+        };
+        audio.addEventListener('ended', handleEnded);
+        return () => audio.removeEventListener('ended', handleEnded);
+    }, []);
+
+    useEffect(() => {
+        const audio = audioRef.current;
+        if (audio) {
+            audio.src = currentTrack.url;
+            if (isPlaying) {
+                audio.play().catch(e => console.error("Error playing track:", e));
+            }
+        }
+    }, [currentTrackIndex]);
+
+    useEffect(() => {
+        if (audioRef.current) {
+            audioRef.current.volume = volume;
+        }
+    }, [volume]);
+
+    const togglePlayPause = () => {
+        const audio = audioRef.current;
+        if (isPlaying) {
+            audio.pause();
+        } else {
+            audio.play().catch(e => console.error("Error playing track:", e));
+        }
+        setIsPlaying(!isPlaying);
+    };
+
+    const handleTrackSelect = (index) => {
+        setCurrentTrackIndex(index);
+    };
+
+    const styles = {
+        floatingButton: {
+            position: 'fixed',
+            bottom: '1rem',
+            left: '1rem',
+            zIndex: 50,
+            backgroundColor: 'rgba(17, 24, 39, 0.8)',
+            backdropFilter: 'blur(4px)',
+            color: isPlaying ? '#c4b5fd' : '#9ca3af',
+            width: '3.5rem',
+            height: '3.5rem',
+            borderRadius: '9999px',
+            boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+            transition: 'all 0.2s',
+            border: '1px solid #374151',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+        },
+        overlay: {
+            position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.7)', zIndex: 60,
+            display: 'flex', alignItems: 'center', justifyContent: 'center'
+        },
+        modal: {
+            backgroundColor: '#1f2937', color: 'white', borderRadius: '1rem',
+            padding: '1.5rem', width: '100%', maxWidth: '24rem',
+            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+            border: '1px solid #4b5563',
+        },
+        header: {
+            display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem'
+        },
+        title: { fontSize: '1.25rem', fontWeight: 'bold', color: '#c4b5fd' },
+        closeButton: { background: 'none', border: 'none', color: '#9ca3af', cursor: 'pointer' },
+        trackList: { display: 'flex', flexDirection: 'column', gap: '0.75rem', marginBottom: '1.5rem' },
+        trackItem: (isActive) => ({
+            padding: '1rem',
+            borderRadius: '0.5rem',
+            backgroundColor: isActive ? 'rgba(139, 92, 246, 0.2)' : 'rgba(55, 65, 81, 0.5)',
+            border: `1px solid ${isActive ? '#8b5cf6' : '#4b5563'}`,
+            cursor: 'pointer',
+            transition: 'all 0.2s'
+        }),
+        trackTitle: { fontWeight: '600' },
+        trackArtist: { fontSize: '0.875rem', color: '#9ca3af' },
+        controls: { display: 'flex', alignItems: 'center', gap: '1rem' },
+        playButton: { background: 'none', border: 'none', color: '#c4b5fd', cursor: 'pointer' },
+        volumeSlider: { flexGrow: 1, accentColor: '#8b5cf6' },
+    };
+
+    return (
+        <>
+            <button onClick={() => setIsPlayerOpen(true)} style={styles.floatingButton}>
+                <Music size={24} />
+            </button>
+            <AnimatePresence>
+                {isPlayerOpen && (
+                    <div style={styles.overlay}>
+                        <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }} style={styles.modal}>
+                            <div style={styles.header}>
+                                <h2 style={styles.title}>Soundscapes</h2>
+                                <button onClick={() => setIsPlayerOpen(false)} style={styles.closeButton}><X size={24} /></button>
+                            </div>
+                            <div style={styles.trackList}>
+                                {soundscapes.map((track, index) => (
+                                    <div key={index} onClick={() => handleTrackSelect(index)} style={styles.trackItem(index === currentTrackIndex)}>
+                                        <p style={styles.trackTitle}>{track.title}</p>
+                                        <p style={styles.trackArtist}>{track.artist}</p>
+                                    </div>
+                                ))}
+                            </div>
+                            <div style={styles.controls}>
+                                <button onClick={togglePlayPause} style={styles.playButton}>
+                                    {isPlaying ? <Pause size={28} /> : <Play size={28} />}
+                                </button>
+                                {volume > 0 ? <Volume2 size={24} color="#9ca3af" /> : <VolumeX size={24} color="#9ca3af" />}
+                                <input
+                                    type="range"
+                                    min="0"
+                                    max="1"
+                                    step="0.01"
+                                    value={volume}
+                                    onChange={(e) => setVolume(parseFloat(e.target.value))}
+                                    style={styles.volumeSlider}
+                                />
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
+        </>
+    );
+}
+
 export default function App() {
     return (
         <AuthProvider>
             <GameProvider>
                 <Toaster position="top-center" reverseOrder={false} />
+                <SoundscapePlayer /> 
                 <MindQuestApp />
-                <SoundscapePlayer />
-                <AudioElement /> 
             </GameProvider>
         </AuthProvider>
     );
 }
-
-// A simple component to render the audio element at the root
-const AudioElement = () => {
-    const { audioRef, currentTrackIndex } = useGame();
-    return <audio ref={audioRef} src={soundscapes[currentTrackIndex].url} loop={false} />;
-}
-
