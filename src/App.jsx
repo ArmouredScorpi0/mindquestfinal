@@ -3,25 +3,41 @@ import { initializeApp } from 'firebase/app';
 import { getAuth, onAuthStateChanged, signInAnonymously, signInWithCustomToken } from 'firebase/auth';
 import { getFirestore, doc, setDoc, onSnapshot, updateDoc } from 'firebase/firestore';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { Smile, Frown, Meh, Laugh, Angry, Home, LayoutDashboard, BookText, X, PlusCircle, ChevronDown, ChevronUp, MoreVertical, Edit, Trash2, Map, Shield, Zap, Wind, ArrowLeft, Dumbbell, Lock, Star, CheckCircle, ClipboardCheck, Droplets, Sparkles, HeartHandshake } from 'lucide-react';
+import { Smile, Frown, Meh, Laugh, Angry, Home, LayoutDashboard, BookText, X, PlusCircle, ChevronDown, ChevronUp, MoreVertical, Edit, Trash2, Map, Shield, Zap, Wind, ArrowLeft, Dumbbell, Lock, Star, CheckCircle, ClipboardCheck, Droplets, Sparkles, HeartHandshake, Music, Play, Pause, Volume2, VolumeX } from 'lucide-react';
 import { Toaster, toast } from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
 
+// --- IMPORTANT: FIREBASE SECURITY RULES ---
+// If you ever have trouble with saving data (like on first-time setup),
+// the issue is likely your Firestore security rules.
+// Go to Firebase Console -> Firestore Database -> Rules and ensure they allow
+// authenticated users to write to their own document path.
+/*
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // This rule allows any authenticated user to create, read, and write
+    // their OWN user document, but not anyone else's.
+    match /artifacts/{appId}/users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+  }
+}
+*/
 
+// --- Firebase and App Initialization ---
 const firebaseConfig = typeof __firebase_config !== 'undefined'
   ? JSON.parse(__firebase_config)
   : JSON.parse(import.meta.env.VITE_FIREBASE_CONFIG || '{}');
 
 const appId = typeof __app_id !== 'undefined' ? __app_id : 'mindquest-final-deploy';
 
-// Initialize Firebase services
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
 // --- Application Constants ---
 
-// Avatars for user selection during onboarding
 const avatars = [
     { id: 1, name: 'Whispering Woods', url: 'https://images.unsplash.com/photo-1448375240586-882707db888b?q=80&w=1956&auto=format&fit=crop' },
     { id: 2, name: 'Harmony Valley', url: 'https://images.unsplash.com/photo-1509099395498-a26c959ba0b7?q=80&w=1960&auto=format&fit=crop' },
@@ -29,14 +45,12 @@ const avatars = [
     { id: 4, name: 'Golden Dunes', url: 'https://images.unsplash.com/photo-1473580044384-7ba9967e16a0?q=80&w=2070&auto=format&fit=crop' },
 ];
 
-// Main goals or paths a user can choose
 const goals = [
     { id: 'resilience', name: 'Resilience', description: 'Build strength to navigate life\'s challenges.' },
     { id: 'focus', name: 'Focus', description: 'Sharpen your concentration and be more present.' },
     { id: 'positivity', name: 'Positivity', description: 'Cultivate a more optimistic and grateful outlook.' },
 ];
 
-// Mood options for daily check-ins
 const moods = [
     { value: 5, icon: Laugh, color: '#4ade80', prompt: "Fantastic! What's putting a smile on your face today?", label: 'Fantastic' },
     { value: 4, icon: Smile, color: '#60a5fa', prompt: "Glad to see you're feeling good. Want to write about it?", label: 'Good' },
@@ -45,23 +59,37 @@ const moods = [
     { value: 1, icon: Angry, color: '#f87171', prompt: "It's valid to feel this way. Writing about it might help.", label: 'Angry' },
 ];
 
-// Data for the nodes on the world map, categorized by path
+const soundscapes = [
+    { 
+      title: "Focus Glow Lofi", 
+      artist: "Zen Melodies", 
+      url: "https://cdn.pixabay.com/download/audio/2024/06/18/audio_145d56417f.mp3?filename=focus-glow-lofi-269098.mp3" 
+    },
+    { 
+      title: "Jazzy Focus", 
+      artist: "Zen Melodies", 
+      url: "https://cdn.pixabay.com/download/audio/2024/05/17/audio_49e8a51184.mp3?filename=jazzy-focus-1-lofi-jazz-371178.mp3" 
+    },
+    { 
+      title: "Lofi Jazzhop Praga", 
+      artist: "Zen Melodies", 
+      url: "https://cdn.pixabay.com/download/audio/2024/05/11/audio_eb3e477611.mp3?filename=lofi-jazzhop-chillhop-praga-262035.mp3" 
+    }
+];
+
 const mapNodesData = [
-    // Resilience Path
     { id: 'r1', name: "Steadfast Stone", path: "resilience", position: { top: '10%', left: '50%' } },
     { id: 'r2', name: "Grit Grove", path: "resilience", position: { top: '25%', left: '30%' } },
     { id: 'r3', name: "Unbending Mountain", path: "resilience", position: { top: '40%', left: '70%' } },
     { id: 'r4', name: "Anchor Point", path: "resilience", position: { top: '55%', left: '40%' } },
     { id: 'r5', name: "The Summit of Self", path: "resilience", position: { top: '70%', left: '60%' } },
     { id: 'r6', name: "Resilient River", path: "resilience", position: { top: '85%', left: '30%' } },
-    // Focus Path
     { id: 'f1', name: "Quiet Clearing", path: "focus", position: { top: '10%', left: '50%' } },
     { id: 'f2', name: "Concentration Creek", path: "focus", position: { top: '25%', left: '70%' } },
     { id: 'f3', name: "Mindful Monolith", path: "focus", position: { top: '40%', left: '30%' } },
     { id: 'f4', name: "The Focused Eye", path: "focus", position: { top: '55%', left: '60%' } },
     { id: 'f5', name: "Deep Work Depths", path: "focus", position: { top: '70%', left: '40%' } },
     { id: 'f6', name: "Clarity Peak", path: "focus", position: { top: '85%', left: '70%' } },
-    // Positivity Path
     { id: 'p1', name: "Gratitude Gardens", path: "positivity", position: { top: '10%', left: '50%' } },
     { id: 'p2', name: "Sun-Kissed Summit", path: "positivity", position: { top: '25%', left: '30%' } },
     { id: 'p3', name: "Joyful Spring", path: "positivity", position: { top: '40%', left: '70%' } },
@@ -70,14 +98,12 @@ const mapNodesData = [
     { id: 'p6', name: "Serenity Shore", path: "positivity", position: { top: '85%', left: '30%' } },
 ];
 
-// Colors for the connecting lines on the map paths
 const lineColors = {
     resilience: "#F87171",
     focus: "#818CF8",
     positivity: "#FBBF24",
 };
 
-// Badge definitions and unlock criteria
 const badgesList = {
     quests: [
         { id: 'first_quest', name: 'First Quest', description: 'Complete your first Big Quest.', check: (data) => safeArray(data.completedNodes).length >= 1 },
@@ -100,7 +126,6 @@ const badgesList = {
 };
 const allBadges = Object.values(badgesList).flat();
 
-// Fallback fitness tasks if AI generation fails
 const fitnessTasksPool = {
     level1: ["Complete 5 minutes of gentle, full-body stretching.", "Do 3 minutes of neck, shoulder, and wrist rolls."],
     level2: ["Perform 20 jumping jacks to get your heart rate up.", "Do 15 high knees on each side."],
@@ -109,7 +134,6 @@ const fitnessTasksPool = {
     level5: ["Follow a 5-minute cool-down stretch video.", "Practice 3 minutes of deep belly breathing to relax."]
 };
 
-// Robust fallback task pool for daily quests
 const fallbackTasksPool = {
     resilience: [
         { task: "Take a moment to identify one small thing you can control right now, and tidy it up.", isJournaling: false },
@@ -218,6 +242,39 @@ const GameProvider = ({ children }) => {
         showFitnessUnlockModal: false,
         showFitnessCompleteModal: false,
     });
+    
+    // Music Player State
+    const [currentTrackIndex, setCurrentTrackIndex] = useState(0);
+    const [isPlaying, setIsPlaying] = useState(false);
+    const [volume, setVolume] = useState(0.2); // Start at a soft volume
+    const [isPlayerOpen, setIsPlayerOpen] = useState(false);
+    const audioRef = useRef(null);
+    const originalVolumeRef = useRef(volume);
+
+    // Toast wrapper for audio ducking
+    const showToast = (type, message, options = {}) => {
+        if (audioRef.current && isPlaying) {
+            originalVolumeRef.current = audioRef.current.volume;
+            audioRef.current.volume = originalVolumeRef.current * 0.5; // Duck volume
+        }
+
+        const promise = toast[type](message, options);
+        
+        // Use a promise to handle when the toast is closed, either by timeout or manually
+        promise.then(
+            () => { // on fulfilled (closed)
+                if (audioRef.current && isPlaying) {
+                     audioRef.current.volume = originalVolumeRef.current; // Restore volume
+                }
+            },
+            () => { // on rejected (should not happen with regular toasts)
+                 if (audioRef.current && isPlaying) {
+                    audioRef.current.volume = originalVolumeRef.current;
+                }
+            }
+        );
+    };
+
 
     const openModal = (modalName) => setModalState(prev => ({ ...prev, [modalName]: true }));
     const closeModal = (modalName) => setModalState(prev => ({ ...prev, [modalName]: false }));
@@ -316,7 +373,7 @@ const GameProvider = ({ children }) => {
         `;
         
         try {
-            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${import.meta.env.VITE_GEMINI_API_KEY}`;
+            const apiUrl = '/api/generateContent'; // CORRECTED API URL
             const payload = { contents: [{ parts: [{ text: prompt }] }] };
             
             const response = await fetch(apiUrl, {
@@ -363,9 +420,8 @@ const GameProvider = ({ children }) => {
 
         } catch (error) {
             console.error("Failed to generate or process daily content, using fallback:", error);
-            toast.error("The spirits are quiet... Here are some challenges.", { duration: 4000 });
+            showToast("error", "The spirits are quiet... Here are some challenges.", { duration: 4000 });
             
-            // Robust fallback logic
             const resilienceTask = fallbackTasksPool.resilience[Math.floor(Math.random() * fallbackTasksPool.resilience.length)];
             const focusTask = fallbackTasksPool.focus[Math.floor(Math.random() * fallbackTasksPool.focus.length)];
             const positivityTask = fallbackTasksPool.positivity[Math.floor(Math.random() * fallbackTasksPool.positivity.length)];
@@ -446,7 +502,7 @@ const GameProvider = ({ children }) => {
         `;
 
         try {
-            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${import.meta.env.VITE_GEMINI_API_KEY}`;
+            const apiUrl = '/api/generateContent'; // CORRECTED API URL
             const payload = { contents: [{ parts: [{ text: prompt }] }] };
 
             const response = await fetch(apiUrl, {
@@ -483,7 +539,7 @@ const GameProvider = ({ children }) => {
 
         } catch (error) {
             console.error("Failed to generate AI fitness tasks, using fallback:", error);
-            toast.error("Couldn't generate new exercises, using a classic routine!", { duration: 3000 });
+            showToast("error", "Couldn't generate new exercises, using a classic routine!", { duration: 3000 });
             return generateFallbackFitnessTasks();
         }
     };
@@ -493,7 +549,7 @@ const GameProvider = ({ children }) => {
         const currentLevel = userData.hydration?.level || 0;
         if (currentLevel >= 8) {
             if (!isSilent) {
-                toast('You\'ve already reached your goal for today!', { icon: '🎉' });
+                showToast('success', 'You\'ve already reached your goal for today!', { icon: '🎉' });
             }
             return;
         }
@@ -507,7 +563,7 @@ const GameProvider = ({ children }) => {
             const updatedData = addXp(xpGained, userData);
             updates.xp = updatedData.xp;
             updates.level = updatedData.level;
-            toast.success('Hydration goal complete! +20 XP');
+            showToast('success', 'Hydration goal complete! +20 XP');
         }
 
         try {
@@ -515,7 +571,7 @@ const GameProvider = ({ children }) => {
             await updateDoc(userRef, updates);
         } catch (error) {
             console.error("Error logging water intake:", error);
-            toast.error("Could not save hydration progress.");
+            showToast('error', "Could not save hydration progress.");
         }
     };
 
@@ -552,7 +608,7 @@ const GameProvider = ({ children }) => {
 
             } catch (error) {
                 console.error("Error updating daily tasks completion:", error);
-                toast.error("Could not save your progress. Please try again.");
+                showToast('error', "Could not save your progress. Please try again.");
             }
         }
     };
@@ -610,11 +666,11 @@ const GameProvider = ({ children }) => {
                 xp: updatedData.xp,
                 level: updatedData.level
             });
-            toast.success("Task Complete! +10 XP");
+            showToast('success', "Task Complete! +10 XP");
             handleDailyTasksCompletion(updatedTasks);
         } catch (error) {
             console.error("Error completing simple task:", error);
-            toast.error("Failed to save task completion.");
+            showToast('error', "Failed to save task completion.");
         }
     };
 
@@ -643,11 +699,11 @@ const GameProvider = ({ children }) => {
                 xp: updatedData.xp,
                 level: updatedData.level
             });
-            toast.success("Journal saved & task complete! +10 XP");
+            showToast('success', "Journal saved & task complete! +10 XP");
             handleDailyTasksCompletion(updatedTasks);
         } catch (error) {
             console.error("Error completing journaling task:", error);
-            toast.error("Failed to save journal and task.");
+            showToast('error', "Failed to save journal and task.");
         }
     };
 
@@ -665,7 +721,7 @@ const GameProvider = ({ children }) => {
         const yesterdayStr = yesterday.toISOString().split('T')[0];
         const newStreak = userData.lastQuestDate === yesterdayStr ? (userData.streak || 0) + 1 : 1;
         
-        toast.success("Big Quest Complete! +50XP!");
+        showToast('success', "Big Quest Complete! +50XP!");
         if (safeArray(userData.completedNodes).length === 0) {
             openModal('showFitnessUnlockModal');
         }
@@ -680,7 +736,7 @@ const GameProvider = ({ children }) => {
         if (newBadges.length > 0) {
             const badgeBonusXp = newBadges.length * 25;
             xpGained += badgeBonusXp;
-            toast.success(`Badge Unlocked! +${badgeBonusXp} bonus XP!`);
+            showToast('success', `Badge Unlocked! +${badgeBonusXp} bonus XP!`);
         }
         
         const updatedData = addXp(xpGained, tempUpdatedData);
@@ -704,7 +760,7 @@ const GameProvider = ({ children }) => {
             });
         } catch (error) {
             console.error("Error completing node task:", error);
-            toast.error("Failed to save quest progress.");
+            showToast('error', "Failed to save quest progress.");
         }
     };
 
@@ -721,7 +777,7 @@ const GameProvider = ({ children }) => {
             updates.xp = updatedData.xp;
             updates.level = updatedData.level;
             updates.lastMoodDate = todayStr;
-            toast.success('+5 XP for your check-in!', { duration: 3000 });
+            showToast('success', '+5 XP for your check-in!', { duration: 3000 });
         }
 
         const moodProps = getMoodProps(moodValue);
@@ -729,7 +785,7 @@ const GameProvider = ({ children }) => {
             setJournalContext({ source: 'mood', mood: moodValue, prompt: moodProps.prompt });
             openModal('isJournalOpen');
         };
-        toast.custom((t) => (
+        showToast('custom', (t) => (
             <motion.div initial={{opacity: 0, y: -20}} animate={{opacity: 1, y: 0}} exit={{opacity: 0, y: -20}} style={{maxWidth: '28rem', width: '100%', backgroundColor: 'white', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)', borderRadius: '0.5rem', pointerEvents: 'auto', display: 'flex', ring: '1px solid rgba(0, 0, 0, 0.05)'}}>
                 <div style={{flex: '1 1 0%', width: '0', padding: '1rem'}}><p style={{fontSize: '0.875rem', fontWeight: '500', color: '#1f2937'}}>{moodProps.prompt}</p></div>
                 <div style={{display: 'flex', borderLeft: '1px solid #e5e7eb'}}><button onClick={() => {toast.dismiss(t.id); openJournal();}} style={{width: '100%', border: '1px solid transparent', borderRadius: '0', borderTopRightRadius: '0.5rem', borderBottomRightRadius: '0.5rem', padding: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.875rem', fontWeight: '500', color: '#4f46e5', cursor: 'pointer'}}>Journal</button></div>
@@ -759,7 +815,7 @@ const GameProvider = ({ children }) => {
             checkLowMoodPattern(updates.moodHistory);
         } catch (error) {
             console.error("Error recording mood:", error);
-            toast.error("Could not save your mood.");
+            showToast('error', "Could not save your mood.");
         }
     };
     
@@ -781,7 +837,7 @@ const GameProvider = ({ children }) => {
         const allRecentMoodsAreLow = recentEntries.every(e => isLowMood(e.mood));
 
         if (allRecentMoodsAreLow && uniqueDays.size >= 3) {
-            toast.custom((t) => (
+            showToast('custom', (t) => (
                 <motion.div
                     initial={{ opacity: 0, y: -20 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -815,7 +871,7 @@ const GameProvider = ({ children }) => {
 
     const saveJournalEntry = async (entry, context) => {
         if (!user || !userData || !entry.trim()) {
-            toast.error("Journal entry cannot be empty.");
+            showToast('error', "Journal entry cannot be empty.");
             return;
         }
         const newJournalEntry = { id: generateUniqueId(), date: new Date().toISOString(), entry, source: context.source };
@@ -831,7 +887,7 @@ const GameProvider = ({ children }) => {
         if (newBadges.length > 0) {
             const badgeBonusXp = newBadges.length * 25;
             xpGained += badgeBonusXp;
-            toast.success(`Badge Unlocked! +${badgeBonusXp} bonus XP!`);
+            showToast('success', `Badge Unlocked! +${badgeBonusXp} bonus XP!`);
             updates.badges = [...new Set([...safeArray(userData.badges), ...newBadges])];
         }
 
@@ -850,16 +906,16 @@ const GameProvider = ({ children }) => {
             const userRef = doc(db, 'artifacts', appId, 'users', user.uid);
             await updateDoc(userRef, updates);
             closeJournalModal();
-            toast.success("Your thoughts have been saved.");
+            showToast('success', "Your thoughts have been saved.");
         } catch (error) {
             console.error("Error saving journal entry:", error);
-            toast.error("Failed to save your journal entry.");
+            showToast('error', "Failed to save your journal entry.");
         }
     };
 
     const updateJournalEntry = async (entryId, newText) => {
         if (!user || !userData || !newText.trim()) {
-            toast.error("Journal entry cannot be empty.");
+            showToast('error', "Journal entry cannot be empty.");
             return;
         }
         const updatedJournal = safeArray(userData.journal).map(entry =>
@@ -868,11 +924,11 @@ const GameProvider = ({ children }) => {
         try {
             const userRef = doc(db, 'artifacts', appId, 'users', user.uid);
             await updateDoc(userRef, { journal: updatedJournal });
-            toast.success("Journal entry updated!");
+            showToast('success', "Journal entry updated!");
             closeJournalModal();
         } catch (error) {
             console.error("Error updating journal entry:", error);
-            toast.error("Failed to update journal entry.");
+            showToast('error', "Failed to update journal entry.");
         }
     };
 
@@ -882,7 +938,7 @@ const GameProvider = ({ children }) => {
         try {
             const userRef = doc(db, 'artifacts', appId, 'users', user.uid);
             await updateDoc(userRef, { journal: updatedJournal });
-            toast.error("Journal entry deleted.");
+            showToast('error', "Journal entry deleted.");
             closeModal('isDeleteConfirmOpen');
             if (selectedJournalEntry?.id === entryToDelete.id) {
                 closeModal('isJournalDetailOpen');
@@ -890,7 +946,7 @@ const GameProvider = ({ children }) => {
             setEntryToDelete(null);
         } catch (error) {
             console.error("Error deleting journal entry:", error);
-            toast.error("Failed to delete journal entry.");
+            showToast('error', "Failed to delete journal entry.");
         }
     };
     
@@ -905,10 +961,10 @@ const GameProvider = ({ children }) => {
         try {
             const userRef = doc(db, 'artifacts', appId, 'users', user.uid);
             await updateDoc(userRef, { dailyFitness: updatedFitnessData });
-            toast.success("Great work!", { duration: 2000 });
+            showToast('success', "Great work!", { duration: 2000 });
         } catch (error) {
             console.error("Error completing fitness task:", error);
-            toast.error("Failed to save fitness progress.");
+            showToast('error', "Failed to save fitness progress.");
             return;
         }
 
@@ -922,7 +978,7 @@ const GameProvider = ({ children }) => {
             if (newBadges.length > 0) {
                 const badgeBonusXp = newBadges.length * 25;
                 xpGained += badgeBonusXp;
-                toast.success(`Badge Unlocked! +${badgeBonusXp} bonus XP!`);
+                showToast('success', `Badge Unlocked! +${badgeBonusXp} bonus XP!`);
             }
 
             const updatedData = addXp(xpGained, userData);
@@ -940,7 +996,7 @@ const GameProvider = ({ children }) => {
                 openModal('showFitnessCompleteModal');
             } catch (error) {
                 console.error("Error finalizing fitness completion:", error);
-                toast.error("Failed to save final fitness rewards.");
+                showToast('error', "Failed to save final fitness rewards.");
             }
         }
     };
@@ -975,7 +1031,7 @@ const GameProvider = ({ children }) => {
         `;
 
         try {
-            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${import.meta.env.VITE_GEMINI_API_KEY}`;
+            const apiUrl = '/api/generateContent'; // CORRECTED API URL
             const payload = { contents: [{ parts: [{ text: prompt }] }] };
             
             const response = await fetch(apiUrl, {
@@ -1001,11 +1057,11 @@ const GameProvider = ({ children }) => {
                 openJournalDetail(updatedEntry);
             }
 
-            toast.success('Insight revealed!', { id: toastId });
+            showToast('success', 'Insight revealed!', { id: toastId });
 
         } catch (error) {
             console.error("Failed to generate journal insights:", error);
-            toast.error("The spirits of insight are quiet right now. Please try again later.", { id: toastId });
+            showToast('error', "The spirits of insight are quiet right now. Please try again later.", { id: toastId });
         } finally {
             setIsInsightLoading(false);
         }
@@ -1068,7 +1124,7 @@ const GameProvider = ({ children }) => {
 
         const twoHours = 2 * 60 * 60 * 1000;
         const timerId = setTimeout(() => {
-            toast("Friendly reminder to drink some water!", { icon: '💧' });
+            showToast('custom', "Friendly reminder to drink some water!", { icon: '💧' });
         }, twoHours);
 
         return () => clearTimeout(timerId);
@@ -1085,7 +1141,9 @@ const GameProvider = ({ children }) => {
         unlockedNodeInfo, setUnlockedNodeInfo, pathToAutoOpen, setPathToAutoOpen, userData, 
         completeSimpleTask, completeJournalingTask, completeNodeTask,
         completeFitnessTask, getXpForNextLevel,
-        logWaterIntake, generateJournalInsights
+        logWaterIntake, generateJournalInsights,
+        // Music player context
+        isPlaying, setIsPlaying, currentTrackIndex, setCurrentTrackIndex, volume, setVolume, isPlayerOpen, setIsPlayerOpen, audioRef, showToast,
     };
     return <GameContext.Provider value={value}>{children}</GameContext.Provider>;
 };
@@ -1097,7 +1155,7 @@ const useGame = () => useContext(GameContext);
 // --- UI Components ---
 
 const Onboarding = () => {
-    const { user, loading } = useAuth(); // BUG FIX: Get loading state
+    const { user, loading } = useAuth();
     const [step, setStep] = useState(1);
     const [displayName, setDisplayName] = useState('');
     const [selectedAvatar, setSelectedAvatar] = useState(avatars[0]);
@@ -1132,7 +1190,6 @@ const Onboarding = () => {
             await setDoc(userRef, initialData);
             toast.success("Your journey begins!");
         } catch (error) {
-            // BUG FIX: Enhanced error logging to help diagnose Firestore issues
             console.error("Error saving onboarding data to Firestore:", error);
             toast.error("Could not start journey. Please check console for details.");
         }
@@ -1159,7 +1216,7 @@ const Onboarding = () => {
 
     useEffect(() => {
         const handleGlobalEnter = (e) => {
-            if (e.key !== 'Enter') return;
+            if (e.key !== 'Enter' || loading) return;
             if (document.activeElement.tagName === 'INPUT') return;
 
             if (step === 2 && selectedAvatar) { 
@@ -1172,7 +1229,7 @@ const Onboarding = () => {
         };
         window.addEventListener('keydown', handleGlobalEnter);
         return () => window.removeEventListener('keydown', handleGlobalEnter);
-    }, [step, selectedAvatar, selectedGoal, handleComplete]);
+    }, [step, selectedAvatar, selectedGoal, handleComplete, loading]);
 
 
     const styles = {
@@ -1328,7 +1385,7 @@ const Onboarding = () => {
                             </div>
                         )}
                         <div style={styles.buttonContainer}>
-                            <button onClick={() => setStep(s => Math.max(1, s - 1))} disabled={step === 1} style={{...styles.button(step === 1), ...styles.backButton, opacity: step === 1 ? 0.5 : 1, cursor: step === 1 ? 'not-allowed' : 'pointer'}}>Back</button>
+                            <button onClick={() => setStep(s => Math.max(1, s - 1))} disabled={step === 1} style={{...styles.button(step === 1), ...styles.backButton}}>Back</button>
                             {step < 3 ? (
                                 <button onClick={handleNextStep} style={styles.button(loading)} disabled={loading}>
                                     {loading ? 'Loading...' : 'Next'}
@@ -1346,7 +1403,8 @@ const Onboarding = () => {
     );
 };
 
-// ... (rest of the components remain the same, so they are copied below without modification comments)
+// ... (Header, PageWrapper, DailyQuestScreen, JournalPage, MoodSelector, HydrationMeter, DailyTasksCard, BigQuestCard, SimpleConfetti, RewardModal, JournalModal, JournalDetailModal, ConfirmationModal, NodeUnlockModal, FitnessUnlockModal, FitnessCompleteModal, Dashboard, MoodHistoryChart, WorldMapPage, PathCard, PathView, MapNode, FitnessHubView, NodeModal, usePreloadImages)
+// All the other components remain the same as the previous version. They are copied below for completeness.
 
 const Header = () => {
     const { userData } = useAuth();
@@ -1733,8 +1791,7 @@ const MoodSelector = () => {
 };
 
 const HydrationMeter = () => {
-    const { userData } = useGame();
-    const { logWaterIntake } = useGame();
+    const { userData, logWaterIntake } = useGame();
     const [isHovered, setIsHovered] = useState(false);
 
     const hydrationLevel = userData?.hydration?.level || 0;
@@ -1832,7 +1889,7 @@ const HydrationMeter = () => {
 };
 
 const DailyTasksCard = () => {
-    const { userData, completeSimpleTask, completeJournalingTask } = useGame();
+    const { userData, completeSimpleTask, completeJournalingTask, showToast } = useGame();
     const { tasks } = userData.dailyContent || { tasks: [] };
     const [journalInputs, setJournalInputs] = useState({});
 
@@ -1845,7 +1902,7 @@ const DailyTasksCard = () => {
         if (journalText.length >= 10) {
             completeJournalingTask(task, journalText);
         } else {
-            toast.error("Journal entry must be at least 10 characters long.");
+            showToast('error', "Journal entry must be at least 10 characters long.");
         }
     };
 
@@ -3411,6 +3468,7 @@ const usePreloadImages = (urls) => {
     }, [urls]);
 };
 
+// Root application component
 const MindQuestApp = () => {
     const { userData, loading } = useAuth();
     const { 
@@ -3533,6 +3591,8 @@ const MindQuestApp = () => {
                 </motion.div>
             </AnimatePresence>
             
+            <SoundscapePlayer />
+
             {selectedNode && <NodeModal node={selectedNode} onClose={() => setSelectedNode(null)} />}
 
             <AnimatePresence>
@@ -3570,8 +3630,15 @@ export default function App() {
             <GameProvider>
                 <Toaster position="top-center" reverseOrder={false} />
                 <MindQuestApp />
+                {/* The actual audio element is controlled via context */}
+                <AudioElement /> 
             </GameProvider>
         </AuthProvider>
     );
 }
 
+// A simple component to render the audio element at the root
+const AudioElement = () => {
+    const { audioRef, currentTrackIndex } = useGame();
+    return <audio ref={audioRef} src={soundscapes[currentTrackIndex].url} loop={false} />;
+}
