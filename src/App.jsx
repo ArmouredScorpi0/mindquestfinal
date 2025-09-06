@@ -7,12 +7,12 @@ import { Smile, Frown, Meh, Laugh, Angry, Home, LayoutDashboard, BookText, X, Pl
 import { Toaster, toast } from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
 
-// --- Firebase and App Initialization ---
 
-// This line securely loads your Firebase configuration from the Vercel environment variables.
-const firebaseConfig = JSON.parse(import.meta.env.VITE_FIREBASE_CONFIG);
+const firebaseConfig = typeof __firebase_config !== 'undefined'
+  ? JSON.parse(__firebase_config)
+  : JSON.parse(import.meta.env.VITE_FIREBASE_CONFIG || '{}');
 
-const appId = 'mindquest-final-deploy'; // A simple, static ID for your app.
+const appId = typeof __app_id !== 'undefined' ? __app_id : 'mindquest-final-deploy';
 
 // Initialize Firebase services
 const app = initializeApp(firebaseConfig);
@@ -132,7 +132,6 @@ const fallbackTasksPool = {
 
 const getMoodProps = (moodValue) => moods.find(m => m.value === moodValue);
 const safeArray = (field) => Array.isArray(field) ? field : [];
-// A robust, cross-browser compatible function to generate unique IDs.
 const generateUniqueId = () => `id-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
 // --- Contexts and Providers ---
@@ -140,7 +139,6 @@ const generateUniqueId = () => `id-${Date.now()}-${Math.random().toString(36).su
 const AuthContext = createContext(null);
 const GameContext = createContext(null);
 
-// AuthProvider handles user authentication and data fetching from Firestore.
 const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
     const [userData, setUserData] = useState(null);
@@ -199,7 +197,6 @@ const AuthProvider = ({ children }) => {
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
-// GameProvider manages all game logic, state, and interactions.
 const GameProvider = ({ children }) => {
     const { user, userData } = useContext(AuthContext);
     const [isTasksLoading, setIsTasksLoading] = useState(true);
@@ -247,13 +244,11 @@ const GameProvider = ({ children }) => {
         }
     };
 
-    // --- FIX 1: Streamlined the journal edit flow ---
-    // This function now closes the detail modal as well, taking the user directly to the edit screen.
     const confirmEditJournal = () => {
         if (!entryToEdit) return;
         setJournalContext({ source: entryToEdit.source, mood: entryToEdit.mood });
         closeModal('isEditConfirmOpen');
-        closeModal('isJournalDetailOpen'); // This line was added
+        closeModal('isJournalDetailOpen');
         openModal('isJournalOpen');
     };
 
@@ -321,7 +316,7 @@ const GameProvider = ({ children }) => {
         `;
         
         try {
-            const apiUrl = '/api/generateContent';
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${import.meta.env.VITE_GEMINI_API_KEY}`;
             const payload = { contents: [{ parts: [{ text: prompt }] }] };
             
             const response = await fetch(apiUrl, {
@@ -375,7 +370,6 @@ const GameProvider = ({ children }) => {
             const focusTask = fallbackTasksPool.focus[Math.floor(Math.random() * fallbackTasksPool.focus.length)];
             const positivityTask = fallbackTasksPool.positivity[Math.floor(Math.random() * fallbackTasksPool.positivity.length)];
 
-            // Ensure exactly one is a journaling task
             const potentialJournalTasks = [
                 { category: 'Resilience', ...resilienceTask },
                 { category: 'Focus', ...focusTask },
@@ -388,12 +382,11 @@ const GameProvider = ({ children }) => {
                 fallbackTasks.push(journalTask);
                 fallbackTasks.push(...potentialJournalTasks.filter(t => !t.isJournaling && t.category !== journalTask.category).slice(0, 2));
             } else {
-                 // If no journaling task was picked by chance, force one
                 const journalResilience = fallbackTasksPool.resilience.find(t => t.isJournaling);
                 fallbackTasks.push({ category: 'Resilience', ...journalResilience });
                 fallbackTasks.push({ category: 'Focus', ...focusTask });
                 fallbackTasks.push({ category: 'Positivity', ...positivityTask });
-                fallbackTasks = fallbackTasks.filter((t, i) => !(t.isJournaling && i > 0)); // Keep only the first journal task
+                fallbackTasks = fallbackTasks.filter((t, i) => !(t.isJournaling && i > 0));
             }
 
             const fallbackBigQuest = { path: userData.mainPath, task: "Spend 10 minutes organizing or simplifying one part of your digital life (like clearing old files or sorting bookmarks), then note how it felt."};
@@ -453,7 +446,7 @@ const GameProvider = ({ children }) => {
         `;
 
         try {
-            const apiUrl = '/api/generateContent';
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${import.meta.env.VITE_GEMINI_API_KEY}`;
             const payload = { contents: [{ parts: [{ text: prompt }] }] };
 
             const response = await fetch(apiUrl, {
@@ -552,10 +545,8 @@ const GameProvider = ({ children }) => {
                     completedTasksHistory: updatedHistory,
                     unlockedNodes: updatedUnlockedNodes
                 });
-                // Consolidated notification: The NodeUnlockModal is now the primary feedback.
                 
                 if (userData.hydration?.level < 8) {
-                    // This hydration boost is now silent to reduce pop-ups.
                     await logWaterIntake(true);
                 }
 
@@ -780,13 +771,13 @@ const GameProvider = ({ children }) => {
         sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
         if (lastSupportDate && new Date(lastSupportDate) > sevenDaysAgo) {
-            return; // Don't show the message if it was shown recently.
+            return;
         }
 
         const recentEntries = moodHistory.slice(0, 3);
         const uniqueDays = new Set(recentEntries.map(e => e.date.split('T')[0]));
 
-        const isLowMood = (mood) => mood <= 2; // Angry or Down
+        const isLowMood = (mood) => mood <= 2;
         const allRecentMoodsAreLow = recentEntries.every(e => isLowMood(e.mood));
 
         if (allRecentMoodsAreLow && uniqueDays.size >= 3) {
@@ -984,7 +975,7 @@ const GameProvider = ({ children }) => {
         `;
 
         try {
-            const apiUrl = '/api/generateContent';
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${import.meta.env.VITE_GEMINI_API_KEY}`;
             const payload = { contents: [{ parts: [{ text: prompt }] }] };
             
             const response = await fetch(apiUrl, {
@@ -1105,9 +1096,8 @@ const useGame = () => useContext(GameContext);
 
 // --- UI Components ---
 
-// Onboarding component for new users.
 const Onboarding = () => {
-    const { user } = useAuth();
+    const { user, loading } = useAuth(); // BUG FIX: Get loading state
     const [step, setStep] = useState(1);
     const [displayName, setDisplayName] = useState('');
     const [selectedAvatar, setSelectedAvatar] = useState(avatars[0]);
@@ -1142,8 +1132,9 @@ const Onboarding = () => {
             await setDoc(userRef, initialData);
             toast.success("Your journey begins!");
         } catch (error) {
-            console.error("Failed to save initial user data:", error);
-            toast.error("Could not start your journey. Please try again.");
+            // BUG FIX: Enhanced error logging to help diagnose Firestore issues
+            console.error("Error saving onboarding data to Firestore:", error);
+            toast.error("Could not start journey. Please check console for details.");
         }
     };
 
@@ -1154,11 +1145,10 @@ const Onboarding = () => {
         }
     };
     
-    // --- FIX 2: Added validation to prevent moving to the next step with a blank name ---
     const handleNextStep = () => {
         if (step === 1 && !displayName.trim()) {
             toast.error("Please enter a name to continue.");
-            return; // Stop the function here if the name is blank
+            return;
         }
         if (step < 3) {
             setStep(s => s + 1);
@@ -1191,7 +1181,7 @@ const Onboarding = () => {
             alignItems: 'center',
             justifyContent: 'center',
             minHeight: '100vh',
-            width: '100vw', // Fix: Ensure full width
+            width: '100vw',
             background: 'linear-gradient(to bottom right, #111827, #1e3a8a, #4f46e5)',
             padding: '1rem',
             color: 'white',
@@ -1280,16 +1270,17 @@ const Onboarding = () => {
             justifyContent: 'space-between',
             marginTop: '2rem'
         },
-        button: {
+        button: (disabled) => ({
             padding: '0.75rem 1.5rem',
             borderRadius: '0.5rem',
             border: 'none',
             fontWeight: 'bold',
-            cursor: 'pointer',
+            cursor: disabled ? 'not-allowed' : 'pointer',
             backgroundColor: '#8b5cf6',
             color: 'white',
             transition: 'background-color 0.2s',
-        },
+            opacity: disabled ? 0.6 : 1,
+        }),
         backButton: {
             backgroundColor: '#4b5563'
         }
@@ -1337,11 +1328,15 @@ const Onboarding = () => {
                             </div>
                         )}
                         <div style={styles.buttonContainer}>
-                            <button onClick={() => setStep(s => Math.max(1, s - 1))} disabled={step === 1} style={{...styles.button, ...styles.backButton, opacity: step === 1 ? 0.5 : 1, cursor: step === 1 ? 'not-allowed' : 'pointer'}}>Back</button>
+                            <button onClick={() => setStep(s => Math.max(1, s - 1))} disabled={step === 1} style={{...styles.button(step === 1), ...styles.backButton, opacity: step === 1 ? 0.5 : 1, cursor: step === 1 ? 'not-allowed' : 'pointer'}}>Back</button>
                             {step < 3 ? (
-                                <button onClick={handleNextStep} style={styles.button}>Next</button>
+                                <button onClick={handleNextStep} style={styles.button(loading)} disabled={loading}>
+                                    {loading ? 'Loading...' : 'Next'}
+                                </button>
                             ) : (
-                                <button onClick={handleComplete} style={styles.button}>Begin Journey</button>
+                                <button onClick={handleComplete} style={styles.button(loading)} disabled={loading}>
+                                    {loading ? 'Saving...' : 'Begin Journey'}
+                                </button>
                             )}
                         </div>
                     </motion.div>
@@ -1351,7 +1346,8 @@ const Onboarding = () => {
     );
 };
 
-// Header component displays user info and XP progress.
+// ... (rest of the components remain the same, so they are copied below without modification comments)
+
 const Header = () => {
     const { userData } = useAuth();
     const { getXpForNextLevel } = useGame();
@@ -1450,7 +1446,6 @@ const Header = () => {
     );
 };
 
-// PageWrapper provides a consistent layout with background image and overlay.
 const PageWrapper = ({ children, bgImageUrl }) => {
     const styles = {
         pageContainer: {
@@ -1467,8 +1462,8 @@ const PageWrapper = ({ children, bgImageUrl }) => {
         overlay: {
             position: 'fixed',
             inset: 0,
-            backgroundColor: 'rgba(17, 24, 39, 0.3)', // Reduced opacity
-            backdropFilter: 'blur(1px)', // Reduced blur
+            backgroundColor: 'rgba(17, 24, 39, 0.3)',
+            backdropFilter: 'blur(1px)',
         },
         content: {
             position: 'relative',
@@ -1491,7 +1486,6 @@ const PageWrapper = ({ children, bgImageUrl }) => {
     );
 };
 
-// DailyQuestScreen is the main screen showing daily tasks.
 const DailyQuestScreen = () => {
     const { userData, isTasksLoading } = useGame();
 
@@ -1540,10 +1534,8 @@ const DailyQuestScreen = () => {
     );
 };
 
-// JournalPage displays all the user's journal entries.
 const JournalPage = () => {
     const { userData, openJournalDetail, openNewJournalEntry } = useGame();
-    // Ensure entries are sorted by date, most recent first.
     const journalEntries = useMemo(() => 
         safeArray(userData.journal).sort((a, b) => new Date(b.date) - new Date(a.date)),
         [userData.journal]
@@ -1561,7 +1553,7 @@ const JournalPage = () => {
             padding: '0.75rem 1.5rem', borderRadius: '0.5rem', border: 'none',
             cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem'
         },
-        list: { // Changed from grid to list
+        list: {
             display: 'flex',
             flexDirection: 'column',
             gap: '1.5rem'
@@ -1652,7 +1644,6 @@ const JournalPage = () => {
 };
 
 
-// MoodSelector allows users to log their daily mood.
 const MoodSelector = () => {
     const { recordMood, userData } = useGame();
     const [selectedMood, setSelectedMood] = useState(null);
@@ -1741,7 +1732,6 @@ const MoodSelector = () => {
     );
 };
 
-// HydrationMeter tracks daily water intake.
 const HydrationMeter = () => {
     const { userData } = useGame();
     const { logWaterIntake } = useGame();
@@ -1778,11 +1768,11 @@ const HydrationMeter = () => {
         },
         count: {
             fontWeight: 'bold',
-            color: '#67e8f9', // cyan-300
+            color: '#67e8f9',
         },
         barContainer: {
             width: '100%',
-            backgroundColor: '#374151', // gray-700
+            backgroundColor: '#374151',
             borderRadius: '9999px',
             height: '1.5rem',
             padding: '0.25rem',
@@ -1791,7 +1781,7 @@ const HydrationMeter = () => {
             boxSizing: 'border-box',
         },
         barContainerHover: {
-            outline: '2px solid rgba(56, 189, 248, 0.5)', // ring-2 ring-cyan-400/50
+            outline: '2px solid rgba(56, 189, 248, 0.5)',
         },
         barInner: {
             position: 'relative',
@@ -1799,7 +1789,7 @@ const HydrationMeter = () => {
             height: '100%',
         },
         barFill: {
-            backgroundImage: 'linear-gradient(to right, #22d3ee, #2563eb)', // from-cyan-400 to-blue-600
+            backgroundImage: 'linear-gradient(to right, #22d3ee, #2563eb)',
             height: '100%',
             borderRadius: '9999px',
             transition: 'width 0.5s ease-out',
@@ -1809,7 +1799,7 @@ const HydrationMeter = () => {
             top: 0,
             height: '100%',
             width: '1px',
-            backgroundColor: 'rgba(17, 24, 39, 0.5)', // bg-gray-900/50
+            backgroundColor: 'rgba(17, 24, 39, 0.5)',
         }
     };
 
@@ -1841,7 +1831,6 @@ const HydrationMeter = () => {
     );
 };
 
-// DailyTasksCard displays the three small daily tasks.
 const DailyTasksCard = () => {
     const { userData, completeSimpleTask, completeJournalingTask } = useGame();
     const { tasks } = userData.dailyContent || { tasks: [] };
@@ -1878,7 +1867,7 @@ const DailyTasksCard = () => {
         title: {
             fontSize: '1.25rem',
             fontWeight: '600',
-            color: '#c4b5fd', // purple-300
+            color: '#c4b5fd',
             textTransform: 'uppercase',
             marginBottom: '1rem',
             textAlign: 'center',
@@ -1938,20 +1927,20 @@ const DailyTasksCard = () => {
             cursor: 'pointer',
         },
         saveButton: {
-            backgroundColor: '#8b5cf6', // purple-600
+            backgroundColor: '#8b5cf6',
         },
         saveButtonHover: {
-            backgroundColor: '#7c3aed', // purple-700
+            backgroundColor: '#7c3aed',
         },
         saveButtonDisabled: {
-            backgroundColor: '#6b7280', // gray-500
+            backgroundColor: '#6b7280',
             cursor: 'not-allowed',
         },
         completeButton: {
-            backgroundColor: '#16a34a', // green-600
+            backgroundColor: '#16a34a',
         },
         completeButtonHover: {
-            backgroundColor: '#15803d', // green-700
+            backgroundColor: '#15803d',
         }
     };
 
@@ -2010,7 +1999,6 @@ const DailyTasksCard = () => {
     );
 };
 
-// BigQuestCard is shown when all small tasks are complete.
 const BigQuestCard = () => {
     const styles = {
         card: {
@@ -2025,11 +2013,11 @@ const BigQuestCard = () => {
         title: {
             fontSize: '1.5rem',
             fontWeight: 'bold',
-            color: '#4ade80', // green-400
+            color: '#4ade80',
             marginBottom: '0.5rem',
         },
         text: {
-            color: '#d1d5db', // gray-300
+            color: '#d1d5db',
         }
     };
 
@@ -2041,7 +2029,6 @@ const BigQuestCard = () => {
     );
 };
 
-// SimpleConfetti provides a confetti animation for rewards.
 const SimpleConfetti = () => {
     const canvasRef = useRef(null);
 
@@ -2102,7 +2089,6 @@ const SimpleConfetti = () => {
     return <canvas ref={canvasRef} style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none' }} />;
 };
 
-// RewardModal displays XP and badge rewards.
 const RewardModal = ({ onClose }) => {
     const { modalState: { showReward }, lastReward } = useGame();
 
@@ -2118,8 +2104,8 @@ const RewardModal = ({ onClose }) => {
         },
         modal: {
             position: 'relative',
-            backgroundColor: '#1f2937', // gray-800
-            border: '1px solid rgba(167, 139, 250, 0.5)', // border-purple-500/50
+            backgroundColor: '#1f2937',
+            border: '1px solid rgba(167, 139, 250, 0.5)',
             borderRadius: '1rem',
             boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
             padding: '2rem',
@@ -2131,15 +2117,15 @@ const RewardModal = ({ onClose }) => {
         title: {
             fontSize: '1.875rem',
             fontWeight: 'bold',
-            color: '#c4b5fd', // purple-400
+            color: '#c4b5fd',
             marginBottom: '0.5rem',
         },
         subtitle: {
-            color: '#d1d5db', // gray-300
+            color: '#d1d5db',
             marginBottom: '1.5rem',
         },
         xpBox: {
-            backgroundColor: 'rgba(55, 65, 81, 0.5)', // gray-700/50
+            backgroundColor: 'rgba(55, 65, 81, 0.5)',
             borderRadius: '0.75rem',
             padding: '1rem',
             marginBottom: '1.5rem',
@@ -2147,7 +2133,7 @@ const RewardModal = ({ onClose }) => {
         xpText: {
             fontSize: '1.25rem',
             fontWeight: 'bold',
-            color: '#ddd6fe', // purple-300
+            color: '#ddd6fe',
         },
         badgeContainer: {
             marginBottom: '1.5rem',
@@ -2155,12 +2141,12 @@ const RewardModal = ({ onClose }) => {
         badgeTitle: {
             fontWeight: 'bold',
             fontSize: '1.125rem',
-            color: '#facc15', // yellow-400
+            color: '#facc15',
             marginBottom: '0.5rem',
         },
         badge: {
-            backgroundColor: '#facc15', // yellow-500
-            color: '#422006', // yellow-900
+            backgroundColor: '#facc15',
+            color: '#422006',
             fontWeight: '600',
             padding: '0.5rem 1rem',
             borderRadius: '9999px',
@@ -2169,7 +2155,7 @@ const RewardModal = ({ onClose }) => {
         },
         button: {
             width: '100%',
-            backgroundColor: '#8b5cf6', // purple-600
+            backgroundColor: '#8b5cf6',
             color: 'white',
             fontWeight: 'bold',
             padding: '0.75rem',
@@ -2207,7 +2193,6 @@ const RewardModal = ({ onClose }) => {
     );
 };
 
-// ... (Other modals and components follow the same CSS-in-JS pattern)
 const JournalModal = () => {
     const { modalState, closeJournalModal, journalContext, saveJournalEntry, entryToEdit, updateJournalEntry } = useGame();
     const [text, setText] = useState('');
@@ -2594,7 +2579,6 @@ const FitnessCompleteModal = ({ isOpen, onClose }) => {
     );
 };
 
-// Dashboard provides an overview of stats and badges.
 const Dashboard = ({ setCurrentPage }) => {
     const { userData } = useAuth();
     
@@ -2717,7 +2701,6 @@ const Dashboard = ({ setCurrentPage }) => {
     );
 };
 
-// MoodHistoryChart displays a bar chart of recent moods.
 const MoodHistoryChart = () => {
     const { userData } = useAuth();
     const moodHistory = useMemo(() => {
@@ -2775,11 +2758,10 @@ const MoodHistoryChart = () => {
     );
 };
 
-// ... (WorldMapPage and related components)
 const WorldMapPage = ({ onNodeClick }) => {
     const { userData } = useAuth();
     const { pathToAutoOpen, setPathToAutoOpen } = useGame();
-    const [view, setView] = useState('hub'); // 'hub', 'path', 'fitness'
+    const [view, setView] = useState('hub');
 
     useEffect(() => {
         if (pathToAutoOpen) {
@@ -2836,7 +2818,7 @@ const WorldMapPage = ({ onNodeClick }) => {
             justifyContent: 'center',
             flexGrow: 1,
             padding: '1rem',
-            paddingBottom: '8rem', // Space for nav
+            paddingBottom: '8rem',
             color: 'white',
         },
         title: {
@@ -2926,7 +2908,7 @@ const PathCard = ({ icon: Icon, title, description, color, onClick, isLocked = f
             position: 'absolute',
             inset: 0,
             backgroundColor: 'rgba(0,0,0,0.5)',
-            borderRadius: '0.875rem', // slightly smaller than card
+            borderRadius: '0.875rem',
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
@@ -3062,7 +3044,7 @@ const PathView = ({ path, onBack, onNodeClick }) => {
             width: '100%',
             maxWidth: '48rem',
             margin: '0 auto',
-            height: '250vh', // Increased height for scrolling
+            height: '250vh',
             zIndex: 20,
         },
         svg: {
@@ -3104,7 +3086,6 @@ const PathView = ({ path, onBack, onNodeClick }) => {
     );
 };
 
-// MapNode represents a single point on a path.
 const MapNode = ({ node, isUnlocked, isCompleted, onClick }) => {
     const [isHovered, setIsHovered] = useState(false);
     const canClick = isUnlocked && !isCompleted;
@@ -3194,7 +3175,6 @@ const MapNode = ({ node, isUnlocked, isCompleted, onClick }) => {
     );
 };
 
-// ... (The rest of the components)
 const FitnessHubView = ({ onBack }) => {
     const { userData, completeFitnessTask } = useGame();
     const { dailyFitness } = userData || {};
@@ -3431,7 +3411,6 @@ const usePreloadImages = (urls) => {
     }, [urls]);
 };
 
-// MindQuestApp is the root component that manages page routing and modals.
 const MindQuestApp = () => {
     const { userData, loading } = useAuth();
     const { 
@@ -3445,13 +3424,12 @@ const MindQuestApp = () => {
     const [selectedNode, setSelectedNode] = useState(null);
     const [mapKey, setMapKey] = useState(Date.now());
 
-    // Preload all critical background images
     usePreloadImages([
         'https://images.unsplash.com/photo-1506744038136-46273834b3fb',
         'https://images.unsplash.com/photo-1637689113621-73951984fcc1?q=80&w=387&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
         'https://images.unsplash.com/photo-1452421822248-d4c2b47f0c81?q=80&w=1074&auto=format&fit=crop',
         userData?.avatarUrl
-    ].filter(Boolean)); // filter(Boolean) removes any null/undefined values
+    ].filter(Boolean));
 
 
     useEffect(() => {
@@ -3496,8 +3474,8 @@ const MindQuestApp = () => {
         mainContainer: {
             fontFamily: "'Inter', sans-serif",
             minHeight: '100vh',
-            width: '100vw', // Fix: Ensure full width
-            backgroundColor: '#111827', // Base background to prevent white flash
+            width: '100vw',
+            backgroundColor: '#111827',
         },
         nav: {
             position: 'fixed',
@@ -3596,3 +3574,4 @@ export default function App() {
         </AuthProvider>
     );
 }
+
