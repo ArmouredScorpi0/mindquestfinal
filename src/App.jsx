@@ -26,15 +26,23 @@ service cloud.firestore {
 */
 
 // --- Firebase and App Initialization ---
+// FIX: Removed the `import.meta.env` fallback to prevent compilation warnings.
+// The app now exclusively relies on the global `__firebase_config` variable.
 const firebaseConfig = typeof __firebase_config !== 'undefined'
   ? JSON.parse(__firebase_config)
-  : JSON.parse(import.meta.env.VITE_FIREBASE_CONFIG || '{}');
+  : {};
 
 const appId = typeof __app_id !== 'undefined' ? __app_id : 'mindquest-final-deploy';
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
+
+// FIX: Centralized API Key management.
+// For deployment on platforms like Vercel, you must set up an environment variable
+// that gets exposed to the client-side code as a global `__gemini_api_key__` variable.
+const GEMINI_API_KEY = typeof __gemini_api_key__ !== 'undefined' ? __gemini_api_key__ : "";
+
 
 // --- Application Constants ---
 
@@ -215,8 +223,6 @@ const AuthProvider = ({ children }) => {
         });
 
         return () => unsubscribeAuth();
-    // FIX: Removed `isAuthReady` from dependency array. This hook should only run once on mount
-    // to set up the auth listener. Re-running it would create duplicate listeners.
     }, []);
 
     const value = { user, userData, loading: !isAuthReady };
@@ -349,9 +355,7 @@ const GameProvider = ({ children }) => {
         `;
         
         try {
-            // FIX: Use the correct full API URL and API key handling pattern.
-            const apiKey = ""; 
-            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${GEMINI_API_KEY}`;
             const payload = { contents: [{ parts: [{ text: prompt }] }] };
             
             const response = await fetch(apiUrl, {
@@ -480,9 +484,7 @@ const GameProvider = ({ children }) => {
         `;
 
         try {
-            // FIX: Use the correct full API URL and API key handling pattern.
-            const apiKey = "";
-            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${GEMINI_API_KEY}`;
             const payload = { contents: [{ parts: [{ text: prompt }] }] };
 
             const response = await fetch(apiUrl, {
@@ -555,10 +557,9 @@ const GameProvider = ({ children }) => {
         }
     };
 
-    // FIX: This function was broken. It is now restored.
     const handleDailyTasksCompletion = async (tasks) => {
         const allCompleted = tasks.every(t => t.completed);
-        if (allCompleted && !userData.dailyContent.allSmallTasksCompleted) { // Ensure it only runs once
+        if (allCompleted && !userData.dailyContent.allSmallTasksCompleted) { 
             const userRef = doc(db, 'artifacts', appId, 'users', user.uid);
             
             const completedTaskTexts = tasks.map(t => t.task);
@@ -1012,9 +1013,7 @@ const GameProvider = ({ children }) => {
         `;
 
         try {
-            // FIX: Use the correct full API URL and API key handling pattern.
-            const apiKey = "";
-            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${GEMINI_API_KEY}`;
             const payload = { contents: [{ parts: [{ text: prompt }] }] };
             
             const response = await fetch(apiUrl, {
@@ -1077,7 +1076,7 @@ const GameProvider = ({ children }) => {
     
     useEffect(() => {
         const checkHydrationReset = async () => {
-            if (user && userData && userData.hydration) { // FIX: Added check for userData.hydration
+            if (user && userData && userData.hydration) {
                 const todayStr = new Date().toISOString().split('T')[0];
                 const lastLog = userData.hydration.lastLogDate;
 
@@ -1212,8 +1211,6 @@ const Onboarding = () => {
         };
         window.addEventListener('keydown', handleGlobalEnter);
         return () => window.removeEventListener('keydown', handleGlobalEnter);
-    // FIX: Corrected dependency array for efficiency. `handleComplete` can cause re-renders if not memoized.
-    // By using specific dependencies, we ensure the listener is only re-added when necessary.
     }, [step, selectedAvatar, selectedGoal, loading, handleComplete]);
 
 
@@ -2732,7 +2729,6 @@ const Dashboard = ({ setCurrentPage }) => {
                         {earnedBadges.length > 0 ? (
                             <div style={styles.badgeList}>
                                 {earnedBadges.map(badge => (
-                                    // FIX: Added `key` prop for list rendering.
                                     <div key={badge.id} style={styles.badge} title={badge.description}>{badge.name}</div>
                                 ))}
                             </div>
@@ -3616,7 +3612,7 @@ const SoundscapePlayer = () => {
     const { isPlaying, setIsPlaying, currentTrackIndex, setCurrentTrackIndex, volume, setVolume, isPlayerOpen, setIsPlayerOpen, audioRef } = useGame();
     const currentTrack = soundscapes[currentTrackIndex];
 
-    // FIX: This effect now correctly handles the initial play attempt and cleanup.
+    // Effect for initializing the audio element and handling the 'ended' event
     useEffect(() => {
         const audio = audioRef.current;
         if (!audio) return;
@@ -3626,27 +3622,26 @@ const SoundscapePlayer = () => {
         };
 
         audio.addEventListener('ended', handleEnded);
-
-        // Attempt to play on mount, but catch errors silently. Browser may block this.
-        if (isPlaying) {
-            audio.play().catch(() => setIsPlaying(false));
-        }
         
         return () => audio.removeEventListener('ended', handleEnded);
-    }, []);
+    }, [setCurrentTrackIndex]);
 
-    // FIX: This effect is now dedicated to changing tracks and playing when appropriate.
+    // Effect for changing tracks and handling play state
     useEffect(() => {
         const audio = audioRef.current;
         if (audio) {
             audio.src = currentTrack.url;
             if (isPlaying) {
-                audio.play().catch(e => console.error("Error playing track:", e));
+                // We call play here to handle track changes while music is already playing
+                audio.play().catch(e => {
+                    console.error("Error auto-playing next track:", e);
+                    setIsPlaying(false); // Update state if play fails
+                });
             }
         }
-    }, [currentTrackIndex, currentTrack.url]); // Note: isPlaying is NOT needed here.
+    }, [currentTrackIndex, currentTrack.url, isPlaying, setIsPlaying]);
 
-    // FIX: This effect is solely for controlling the volume.
+    // Effect for controlling volume
     useEffect(() => {
         if (audioRef.current) {
             audioRef.current.volume = volume;
@@ -3655,12 +3650,19 @@ const SoundscapePlayer = () => {
 
     const togglePlayPause = () => {
         const audio = audioRef.current;
-        if (isPlaying) {
-            audio.pause();
+        if (!audio) return;
+
+        if (audio.paused) {
+            audio.play().then(() => {
+                setIsPlaying(true);
+            }).catch(e => {
+                console.error("Audio play failed. User interaction might be required.", e);
+                setIsPlaying(false);
+            });
         } else {
-            audio.play().catch(e => console.error("Error playing track:", e));
+            audio.pause();
+            setIsPlaying(false);
         }
-        setIsPlaying(!isPlaying);
     };
 
     const handleTrackSelect = (index) => {
@@ -3720,8 +3722,7 @@ const SoundscapePlayer = () => {
 
     return (
         <>
-            {/* The actual audio element, hidden but controlled by the player logic */}
-            <audio ref={audioRef} src={soundscapes[currentTrackIndex].url} loop={false} />
+            <audio ref={audioRef} loop={false} />
 
             <button onClick={() => setIsPlayerOpen(true)} style={styles.floatingButton}>
                 <Music size={24} />
