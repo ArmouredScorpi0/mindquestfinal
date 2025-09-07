@@ -10,7 +10,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 // --- Firebase and App Initialization ---
 // This now correctly reads the variable provided by your vite.config.js
 const firebaseConfig = typeof __firebase_config__ !== 'undefined'
-  ? JSON.parse(__firebase_config__)
+  ? __firebase_config__
   : {};
 
 const appId = typeof __app_id !== 'undefined' ? __app_id : 'mindquest-final-deploy';
