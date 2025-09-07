@@ -3,33 +3,14 @@ import { initializeApp } from 'firebase/app';
 import { getAuth, onAuthStateChanged, signInAnonymously, signInWithCustomToken } from 'firebase/auth';
 import { getFirestore, doc, setDoc, onSnapshot, updateDoc } from 'firebase/firestore';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { Smile, Frown, Meh, Laugh, Angry, Home, LayoutDashboard, BookText, X, PlusCircle, ChevronDown, ChevronUp, MoreVertical, Edit, Trash2, Map, Shield, Zap, Wind, ArrowLeft, Dumbbell, Lock, Star, CheckCircle, ClipboardCheck, Droplets, Sparkles, HeartHandshake, Music, Play, Pause, Volume2, VolumeX } from 'lucide-react';
+import { Smile, Frown, Meh, Laugh, Angry, Home, LayoutDashboard, BookText, X, PlusCircle, ChevronDown, ChevronUp, MoreVertical, Edit, Trash2, Map, Shield, Zap, Wind, ArrowLeft, Dumbbell, Lock, Star, CheckCircle, ClipboardCheck, Droplets, Sparkles, HeartHandshake } from 'lucide-react';
 import { Toaster, toast } from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
 
-// --- IMPORTANT: FIREBASE SECURITY RULES ---
-// If you ever have trouble with saving data (like on first-time setup),
-// the issue is likely your Firestore security rules.
-// Go to Firebase Console -> Firestore Database -> Rules and ensure they allow
-// authenticated users to write to their own document path.
-/*
-rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    // This rule allows any authenticated user to create, read, and write
-    // their OWN user document, but not anyone else's.
-    match /artifacts/{appId}/users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
-    }
-  }
-}
-*/
-
 // --- Firebase and App Initialization ---
-// FIX: Removed the `import.meta.env` fallback to prevent compilation warnings.
-// The app now exclusively relies on the global `__firebase_config` variable.
-const firebaseConfig = typeof __firebase_config !== 'undefined'
-  ? JSON.parse(__firebase_config)
+// This now correctly reads the variable provided by your vite.config.js
+const firebaseConfig = typeof __firebase_config__ !== 'undefined'
+  ? JSON.parse(__firebase_config__)
   : {};
 
 const appId = typeof __app_id !== 'undefined' ? __app_id : 'mindquest-final-deploy';
@@ -37,12 +18,6 @@ const appId = typeof __app_id !== 'undefined' ? __app_id : 'mindquest-final-depl
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
-
-// FIX: Centralized API Key management.
-// For deployment on platforms like Vercel, you must set up an environment variable
-// that gets exposed to the client-side code as a global `__gemini_api_key__` variable.
-const GEMINI_API_KEY = typeof __gemini_api_key__ !== 'undefined' ? __gemini_api_key__ : "";
-
 
 // --- Application Constants ---
 
@@ -65,24 +40,6 @@ const moods = [
     { value: 3, icon: Meh, color: '#818cf8', prompt: "Feeling neutral is perfectly okay. What's on your mind?", label: 'Neutral' },
     { value: 2, icon: Frown, color: '#a78bfa', prompt: "It's okay to feel down. What's contributing to this feeling?", label: 'Down' },
     { value: 1, icon: Angry, color: '#f87171', prompt: "It's valid to feel this way. Writing about it might help.", label: 'Angry' },
-];
-
-const soundscapes = [
-    { 
-      title: "Focus Glow Lofi", 
-      artist: "Zen Melodies", 
-      url: "https://cdn.pixabay.com/download/audio/2024/06/18/audio_145d56417f.mp3?filename=focus-glow-lofi-269098.mp3" 
-    },
-    { 
-      title: "Jazzy Focus", 
-      artist: "Zen Melodies", 
-      url: "https://cdn.pixabay.com/download/audio/2024/05/17/audio_49e8a51184.mp3?filename=jazzy-focus-1-lofi-jazz-371178.mp3" 
-    },
-    { 
-      title: "Lofi Jazzhop Praga", 
-      artist: "Zen Melodies", 
-      url: "https://cdn.pixabay.com/download/audio/2024/05/11/audio_eb3e477611.mp3?filename=lofi-jazzhop-chillhop-praga-262035.mp3" 
-    }
 ];
 
 const mapNodesData = [
@@ -250,13 +207,6 @@ const GameProvider = ({ children }) => {
         showFitnessUnlockModal: false,
         showFitnessCompleteModal: false,
     });
-    
-    // Music Player State
-    const [currentTrackIndex, setCurrentTrackIndex] = useState(0);
-    const [isPlaying, setIsPlaying] = useState(false);
-    const [volume, setVolume] = useState(0.2);
-    const [isPlayerOpen, setIsPlayerOpen] = useState(false);
-    const audioRef = useRef(null);
 
     const openModal = (modalName) => setModalState(prev => ({ ...prev, [modalName]: true }));
     const closeModal = (modalName) => setModalState(prev => ({ ...prev, [modalName]: false }));
@@ -355,7 +305,8 @@ const GameProvider = ({ children }) => {
         `;
         
         try {
-            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${GEMINI_API_KEY}`;
+            // FIX: Reverted to use the secure /api/generateContent endpoint
+            const apiUrl = '/api/generateContent';
             const payload = { contents: [{ parts: [{ text: prompt }] }] };
             
             const response = await fetch(apiUrl, {
@@ -484,7 +435,8 @@ const GameProvider = ({ children }) => {
         `;
 
         try {
-            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${GEMINI_API_KEY}`;
+            // FIX: Reverted to use the secure /api/generateContent endpoint
+            const apiUrl = '/api/generateContent';
             const payload = { contents: [{ parts: [{ text: prompt }] }] };
 
             const response = await fetch(apiUrl, {
@@ -1013,7 +965,8 @@ const GameProvider = ({ children }) => {
         `;
 
         try {
-            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${GEMINI_API_KEY}`;
+            // FIX: Reverted to use the secure /api/generateContent endpoint
+            const apiUrl = '/api/generateContent';
             const payload = { contents: [{ parts: [{ text: prompt }] }] };
             
             const response = await fetch(apiUrl, {
@@ -1124,8 +1077,6 @@ const GameProvider = ({ children }) => {
         completeSimpleTask, completeJournalingTask, completeNodeTask,
         completeFitnessTask, getXpForNextLevel,
         logWaterIntake, generateJournalInsights,
-        // Music player context
-        isPlaying, setIsPlaying, currentTrackIndex, setCurrentTrackIndex, volume, setVolume, isPlayerOpen, setIsPlayerOpen, audioRef,
     };
     return <GameContext.Provider value={value}>{children}</GameContext.Provider>;
 };
@@ -1773,7 +1724,6 @@ const MoodSelector = () => {
 };
 
 const HydrationMeter = () => {
-    // FIX: Destructure logWaterIntake from the useGame hook to make it available.
     const { userData, logWaterIntake } = useGame();
     const [isHovered, setIsHovered] = useState(false);
 
@@ -1872,7 +1822,6 @@ const HydrationMeter = () => {
 };
 
 const DailyTasksCard = () => {
-    // FIX: Replaced non-existent `showToast` with `toast` from the library.
     const { userData, completeSimpleTask, completeJournalingTask } = useGame();
     const { tasks } = userData.dailyContent || { tasks: [] };
     const [journalInputs, setJournalInputs] = useState({});
@@ -2220,7 +2169,6 @@ const RewardModal = ({ onClose }) => {
                     <div style={styles.badgeContainer}>
                         <h3 style={styles.badgeTitle}>Badge Unlocked!</h3>
                         {lastReward.newBadges.map(badge => (
-                            // FIX: Added `key` prop for list rendering.
                             <p key={badge} style={styles.badge}> {badge} </p>
                         ))}
                     </div>
@@ -3607,171 +3555,11 @@ const MindQuestApp = () => {
     );
 };
 
-// New Music Player Component
-const SoundscapePlayer = () => {
-    const { isPlaying, setIsPlaying, currentTrackIndex, setCurrentTrackIndex, volume, setVolume, isPlayerOpen, setIsPlayerOpen, audioRef } = useGame();
-    const currentTrack = soundscapes[currentTrackIndex];
-
-    // Effect for initializing the audio element and handling the 'ended' event
-    useEffect(() => {
-        const audio = audioRef.current;
-        if (!audio) return;
-        
-        const handleEnded = () => {
-            setCurrentTrackIndex(prev => (prev + 1) % soundscapes.length);
-        };
-
-        audio.addEventListener('ended', handleEnded);
-        
-        return () => audio.removeEventListener('ended', handleEnded);
-    }, [setCurrentTrackIndex]);
-
-    // Effect for changing tracks and handling play state
-    useEffect(() => {
-        const audio = audioRef.current;
-        if (audio) {
-            audio.src = currentTrack.url;
-            if (isPlaying) {
-                // We call play here to handle track changes while music is already playing
-                audio.play().catch(e => {
-                    console.error("Error auto-playing next track:", e);
-                    setIsPlaying(false); // Update state if play fails
-                });
-            }
-        }
-    }, [currentTrackIndex, currentTrack.url, isPlaying, setIsPlaying]);
-
-    // Effect for controlling volume
-    useEffect(() => {
-        if (audioRef.current) {
-            audioRef.current.volume = volume;
-        }
-    }, [volume]);
-
-    const togglePlayPause = () => {
-        const audio = audioRef.current;
-        if (!audio) return;
-
-        if (audio.paused) {
-            audio.play().then(() => {
-                setIsPlaying(true);
-            }).catch(e => {
-                console.error("Audio play failed. User interaction might be required.", e);
-                setIsPlaying(false);
-            });
-        } else {
-            audio.pause();
-            setIsPlaying(false);
-        }
-    };
-
-    const handleTrackSelect = (index) => {
-        setCurrentTrackIndex(index);
-    };
-
-    const styles = {
-        floatingButton: {
-            position: 'fixed',
-            bottom: '1rem',
-            left: '1rem',
-            zIndex: 50,
-            backgroundColor: 'rgba(17, 24, 39, 0.8)',
-            backdropFilter: 'blur(4px)',
-            color: isPlaying ? '#c4b5fd' : '#9ca3af',
-            width: '3.5rem',
-            height: '3.5rem',
-            borderRadius: '9999px',
-            boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
-            transition: 'all 0.2s',
-            border: '1px solid #374151',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-        },
-        overlay: {
-            position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.7)', zIndex: 60,
-            display: 'flex', alignItems: 'center', justifyContent: 'center'
-        },
-        modal: {
-            backgroundColor: '#1f2937', color: 'white', borderRadius: '1rem',
-            padding: '1.5rem', width: '100%', maxWidth: '24rem',
-            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
-            border: '1px solid #4b5563',
-        },
-        header: {
-            display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem'
-        },
-        title: { fontSize: '1.25rem', fontWeight: 'bold', color: '#c4b5fd' },
-        closeButton: { background: 'none', border: 'none', color: '#9ca3af', cursor: 'pointer' },
-        trackList: { display: 'flex', flexDirection: 'column', gap: '0.75rem', marginBottom: '1.5rem' },
-        trackItem: (isActive) => ({
-            padding: '1rem',
-            borderRadius: '0.5rem',
-            backgroundColor: isActive ? 'rgba(139, 92, 246, 0.2)' : 'rgba(55, 65, 81, 0.5)',
-            border: `1px solid ${isActive ? '#8b5cf6' : '#4b5563'}`,
-            cursor: 'pointer',
-            transition: 'all 0.2s'
-        }),
-        trackTitle: { fontWeight: '600' },
-        trackArtist: { fontSize: '0.875rem', color: '#9ca3af' },
-        controls: { display: 'flex', alignItems: 'center', gap: '1rem' },
-        playButton: { background: 'none', border: 'none', color: '#c4b5fd', cursor: 'pointer' },
-        volumeSlider: { flexGrow: 1, accentColor: '#8b5cf6' },
-    };
-
-    return (
-        <>
-            <audio ref={audioRef} loop={false} />
-
-            <button onClick={() => setIsPlayerOpen(true)} style={styles.floatingButton}>
-                <Music size={24} />
-            </button>
-            <AnimatePresence>
-                {isPlayerOpen && (
-                    <div style={styles.overlay}>
-                        <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }} style={styles.modal}>
-                            <div style={styles.header}>
-                                <h2 style={styles.title}>Soundscapes</h2>
-                                <button onClick={() => setIsPlayerOpen(false)} style={styles.closeButton}><X size={24} /></button>
-                            </div>
-                            <div style={styles.trackList}>
-                                {soundscapes.map((track, index) => (
-                                    <div key={index} onClick={() => handleTrackSelect(index)} style={styles.trackItem(index === currentTrackIndex)}>
-                                        <p style={styles.trackTitle}>{track.title}</p>
-                                        <p style={styles.trackArtist}>{track.artist}</p>
-                                    </div>
-                                ))}
-                            </div>
-                            <div style={styles.controls}>
-                                <button onClick={togglePlayPause} style={styles.playButton}>
-                                    {isPlaying ? <Pause size={28} /> : <Play size={28} />}
-                                </button>
-                                {volume > 0 ? <Volume2 size={24} color="#9ca3af" /> : <VolumeX size={24} color="#9ca3af" />}
-                                <input
-                                    type="range"
-                                    min="0"
-                                    max="1"
-                                    step="0.01"
-                                    value={volume}
-                                    onChange={(e) => setVolume(parseFloat(e.target.value))}
-                                    style={styles.volumeSlider}
-                                />
-                            </div>
-                        </motion.div>
-                    </div>
-                )}
-            </AnimatePresence>
-        </>
-    );
-}
-
 export default function App() {
     return (
         <AuthProvider>
             <GameProvider>
                 <Toaster position="top-center" reverseOrder={false} />
-                <SoundscapePlayer /> 
                 <MindQuestApp />
             </GameProvider>
         </AuthProvider>
