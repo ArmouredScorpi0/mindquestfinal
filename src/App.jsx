@@ -3,12 +3,12 @@ import { initializeApp } from 'firebase/app';
 import { getAuth, onAuthStateChanged, signInAnonymously, signInWithCustomToken } from 'firebase/auth';
 import { getFirestore, doc, setDoc, onSnapshot, updateDoc } from 'firebase/firestore';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { Smile, Frown, Meh, Laugh, Angry, Home, LayoutDashboard, BookText, X, PlusCircle, ChevronDown, ChevronUp, MoreVertical, Edit, Trash2, Map, Shield, Zap, Wind, ArrowLeft, Dumbbell, Lock, Star, CheckCircle, ClipboardCheck, Droplets, Sparkles, HeartHandshake } from 'lucide-react';
+// FIX: Added music-related icons back
+import { Smile, Frown, Meh, Laugh, Angry, Home, LayoutDashboard, BookText, X, PlusCircle, ChevronDown, ChevronUp, MoreVertical, Edit, Trash2, Map, Shield, Zap, Wind, ArrowLeft, Dumbbell, Lock, Star, CheckCircle, ClipboardCheck, Droplets, Sparkles, HeartHandshake, Music, Play, Pause, Volume2, VolumeX } from 'lucide-react';
 import { Toaster, toast } from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
 
 // --- Firebase and App Initialization ---
-// This now correctly reads the variable provided by your vite.config.js
 const firebaseConfig = typeof __firebase_config__ !== 'undefined'
   ? __firebase_config__
   : {};
@@ -20,6 +20,22 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 
 // --- Application Constants ---
+
+// FIX: Added soundscapes constant with your working GitHub URLs
+const soundscapes = [
+    {
+      title: "Focus Glow Lofi",
+      url: "https://cdn.jsdelivr.net/gh/ArmouredScorpi0/mindquestfinal@main/public/audio/focus-glow-lofi-269098.mp3"
+    },
+    {
+      title: "Jazzy Focus",
+      url: "https://cdn.jsdelivr.net/gh/ArmouredScorpi0/mindquestfinal@main/public/audio/jazzy-focus-1-lofi-jazz-371178.mp3"
+    },
+    {
+      title: "Lofi Jazzhop Praga",
+      url: "https://cdn.jsdelivr.net/gh/ArmouredScorpi0/mindquestfinal@main/public/audio/lofi-jazzhop-chillhop-praga-262035.mp3"
+    }
+];
 
 const avatars = [
     { id: 1, name: 'Whispering Woods', url: 'https://images.unsplash.com/photo-1448375240586-882707db888b?q=80&w=1956&auto=format&fit=crop' },
@@ -207,6 +223,13 @@ const GameProvider = ({ children }) => {
         showFitnessUnlockModal: false,
         showFitnessCompleteModal: false,
     });
+    
+    // FIX: Added music player state back
+    const [currentTrackIndex, setCurrentTrackIndex] = useState(0);
+    const [isPlaying, setIsPlaying] = useState(false);
+    const [volume, setVolume] = useState(0.2);
+    const [isPlayerOpen, setIsPlayerOpen] = useState(false);
+    const audioRef = useRef(null);
 
     const openModal = (modalName) => setModalState(prev => ({ ...prev, [modalName]: true }));
     const closeModal = (modalName) => setModalState(prev => ({ ...prev, [modalName]: false }));
@@ -305,7 +328,6 @@ const GameProvider = ({ children }) => {
         `;
         
         try {
-            // FIX: Reverted to use the secure /api/generateContent endpoint
             const apiUrl = '/api/generateContent';
             const payload = { contents: [{ parts: [{ text: prompt }] }] };
             
@@ -435,7 +457,6 @@ const GameProvider = ({ children }) => {
         `;
 
         try {
-            // FIX: Reverted to use the secure /api/generateContent endpoint
             const apiUrl = '/api/generateContent';
             const payload = { contents: [{ parts: [{ text: prompt }] }] };
 
@@ -965,7 +986,6 @@ const GameProvider = ({ children }) => {
         `;
 
         try {
-            // FIX: Reverted to use the secure /api/generateContent endpoint
             const apiUrl = '/api/generateContent';
             const payload = { contents: [{ parts: [{ text: prompt }] }] };
             
@@ -1066,6 +1086,7 @@ const GameProvider = ({ children }) => {
 
     }, [user, userData, userData?.hydration?.level]);
 
+    // FIX: Added music player state and functions to the context value
     const value = { 
         modalState, openModal, closeModal,
         lastReward, recordMood, 
@@ -1077,6 +1098,7 @@ const GameProvider = ({ children }) => {
         completeSimpleTask, completeJournalingTask, completeNodeTask,
         completeFitnessTask, getXpForNextLevel,
         logWaterIntake, generateJournalInsights,
+        isPlaying, setIsPlaying, currentTrackIndex, setCurrentTrackIndex, volume, setVolume, isPlayerOpen, setIsPlayerOpen, audioRef,
     };
     return <GameContext.Provider value={value}>{children}</GameContext.Provider>;
 };
@@ -1086,7 +1108,6 @@ const useAuth = () => useContext(AuthContext);
 const useGame = () => useContext(GameContext);
 
 // --- UI Components ---
-
 const Onboarding = () => {
     const { user, loading } = useAuth();
     const [step, setStep] = useState(1);
@@ -1335,9 +1356,6 @@ const Onboarding = () => {
         </div>
     );
 };
-
-// ... (Header, PageWrapper, DailyQuestScreen, JournalPage, MoodSelector, HydrationMeter, DailyTasksCard, BigQuestCard, SimpleConfetti, RewardModal, JournalModal, JournalDetailModal, ConfirmationModal, NodeUnlockModal, FitnessUnlockModal, FitnessCompleteModal, Dashboard, MoodHistoryChart, WorldMapPage, PathCard, PathView, MapNode, FitnessHubView, NodeModal, usePreloadImages)
-// All the other components remain the same as the previous version. They are copied below for completeness.
 
 const Header = () => {
     const { userData } = useAuth();
@@ -3401,6 +3419,117 @@ const usePreloadImages = (urls) => {
     }, [urls]);
 };
 
+// FIX: Added the SoundscapePlayer component
+const SoundscapePlayer = () => {
+    const { isPlaying, setIsPlaying, currentTrackIndex, setCurrentTrackIndex, volume, setVolume, isPlayerOpen, setIsPlayerOpen, audioRef } = useGame();
+    const currentTrack = soundscapes[currentTrackIndex];
+
+    // For Phase 1, the playback logic is intentionally minimal.
+    // It only handles UI state changes.
+    const togglePlayPause = () => {
+        setIsPlaying(!isPlaying);
+    };
+
+    const handleTrackSelect = (index) => {
+        setCurrentTrackIndex(index);
+    };
+
+    const styles = {
+        floatingButton: {
+            position: 'fixed',
+            bottom: '1rem',
+            left: '1rem',
+            zIndex: 50,
+            backgroundColor: 'rgba(17, 24, 39, 0.8)',
+            backdropFilter: 'blur(4px)',
+            color: isPlaying ? '#c4b5fd' : '#9ca3af',
+            width: '3.5rem',
+            height: '3.5rem',
+            borderRadius: '9999px',
+            boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+            transition: 'all 0.2s',
+            border: '1px solid #374151',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+        },
+        overlay: {
+            position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.7)', zIndex: 60,
+            display: 'flex', alignItems: 'center', justifyContent: 'center'
+        },
+        modal: {
+            backgroundColor: '#1f2937', color: 'white', borderRadius: '1rem',
+            padding: '1.5rem', width: '100%', maxWidth: '24rem',
+            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+            border: '1px solid #4b5563',
+        },
+        header: {
+            display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem'
+        },
+        title: { fontSize: '1.25rem', fontWeight: 'bold', color: '#c4b5fd' },
+        closeButton: { background: 'none', border: 'none', color: '#9ca3af', cursor: 'pointer' },
+        trackList: { display: 'flex', flexDirection: 'column', gap: '0.75rem', marginBottom: '1.5rem' },
+        trackItem: (isActive) => ({
+            padding: '1rem',
+            borderRadius: '0.5rem',
+            backgroundColor: isActive ? 'rgba(139, 92, 246, 0.2)' : 'rgba(55, 65, 81, 0.5)',
+            border: `1px solid ${isActive ? '#8b5cf6' : '#4b5563'}`,
+            cursor: 'pointer',
+            transition: 'all 0.2s'
+        }),
+        trackTitle: { fontWeight: '600' },
+        controls: { display: 'flex', alignItems: 'center', gap: '1rem' },
+        playButton: { background: 'none', border: 'none', color: '#c4b5fd', cursor: 'pointer' },
+        volumeSlider: { flexGrow: 1, accentColor: '#8b5cf6' },
+    };
+
+    return (
+        <>
+            <audio ref={audioRef} />
+
+            <button onClick={() => setIsPlayerOpen(true)} style={styles.floatingButton}>
+                <Music size={24} />
+            </button>
+            <AnimatePresence>
+                {isPlayerOpen && (
+                    <div style={styles.overlay}>
+                        <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }} style={styles.modal}>
+                            <div style={styles.header}>
+                                <h2 style={styles.title}>Soundscapes</h2>
+                                <button onClick={() => setIsPlayerOpen(false)} style={styles.closeButton}><X size={24} /></button>
+                            </div>
+                            <div style={styles.trackList}>
+                                {soundscapes.map((track, index) => (
+                                    <div key={index} onClick={() => handleTrackSelect(index)} style={styles.trackItem(index === currentTrackIndex)}>
+                                        <p style={styles.trackTitle}>{track.title}</p>
+                                    </div>
+                                ))}
+                            </div>
+                            <div style={styles.controls}>
+                                <button onClick={togglePlayPause} style={styles.playButton}>
+                                    {isPlaying ? <Pause size={28} /> : <Play size={28} />}
+                                </button>
+                                {volume > 0 ? <Volume2 size={24} color="#9ca3af" /> : <VolumeX size={24} color="#9ca3af" />}
+                                <input
+                                    type="range"
+                                    min="0"
+                                    max="1"
+                                    step="0.01"
+                                    value={volume}
+                                    onChange={(e) => setVolume(parseFloat(e.target.value))}
+                                    style={styles.volumeSlider}
+                                />
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
+        </>
+    );
+}
+
+
 // Root application component
 const MindQuestApp = () => {
     const { userData, loading } = useAuth();
@@ -3560,6 +3689,7 @@ export default function App() {
         <AuthProvider>
             <GameProvider>
                 <Toaster position="top-center" reverseOrder={false} />
+                <SoundscapePlayer />
                 <MindQuestApp />
             </GameProvider>
         </AuthProvider>
