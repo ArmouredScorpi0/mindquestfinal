@@ -22,16 +22,16 @@ const db = getFirestore(app);
 
 const soundscapes = [
     {
+      title: "Lofi Jazzhop Praga",
+      url: "https://cdn.jsdelivr.net/gh/ArmouredScorpi0/mindquestfinal@main/public/audio/lofi-jazzhop-chillhop-praga-262035.mp3"
+    },
+    {
       title: "Focus Glow Lofi",
       url: "https://cdn.jsdelivr.net/gh/ArmouredScorpi0/mindquestfinal@main/public/audio/focus-glow-lofi-269098.mp3"
     },
     {
       title: "Jazzy Focus",
       url: "https://cdn.jsdelivr.net/gh/ArmouredScorpi0/mindquestfinal@main/public/audio/jazzy-focus-1-lofi-jazz-371178.mp3"
-    },
-    {
-      title: "Lofi Jazzhop Praga",
-      url: "https://cdn.jsdelivr.net/gh/ArmouredScorpi0/mindquestfinal@main/public/audio/lofi-jazzhop-chillhop-praga-262035.mp3"
     }
 ];
 
@@ -223,7 +223,7 @@ const GameProvider = ({ children }) => {
     });
     
     const [currentTrackIndex, setCurrentTrackIndex] = useState(0);
-    const [isPlaying, setIsPlaying] = useState(false);
+    const [isPlaying, setIsPlaying] = useState(true);
     const [volume, setVolume] = useState(0.2);
     const [isPlayerOpen, setIsPlayerOpen] = useState(false);
     const audioRef = useRef(null);
@@ -3415,7 +3415,6 @@ const usePreloadImages = (urls) => {
     }, [urls]);
 };
 
-// EDIT: SoundscapePlayer component updated with Phase 2 playback logic
 const SoundscapePlayer = () => {
     const { isPlaying, setIsPlaying, currentTrackIndex, setCurrentTrackIndex, volume, setVolume, isPlayerOpen, setIsPlayerOpen, audioRef } = useGame();
     const currentTrack = soundscapes[currentTrackIndex];
@@ -3424,8 +3423,6 @@ const SoundscapePlayer = () => {
     useEffect(() => {
         if (audioRef.current) {
             if (isPlaying) {
-                // The play() method returns a promise which can be rejected if the user
-                // interacts with the page too quickly. We catch this to avoid console errors.
                 audioRef.current.play().catch(error => console.log("Playback was interrupted.", error));
             } else {
                 audioRef.current.pause();
@@ -3436,14 +3433,11 @@ const SoundscapePlayer = () => {
     // Effect to handle TRACK SELECTION changes
     useEffect(() => {
         if (audioRef.current) {
-            // Only change src if it's different to prevent re-loading the same track
             if (audioRef.current.src !== currentTrack.url) {
                 audioRef.current.src = currentTrack.url;
             }
             if (isPlaying) {
-                // When the track changes, and the player is supposed to be playing,
-                // we load the new source and start it.
-                audioRef.current.load(); // Ensures the new source is loaded
+                audioRef.current.load();
                 audioRef.current.play().catch(error => console.log("Playback was interrupted.", error));
             }
         }
@@ -3455,6 +3449,12 @@ const SoundscapePlayer = () => {
             audioRef.current.volume = volume;
         }
     }, [volume]);
+    
+    // PHASE 3: Handle auto-play for the next track
+    const handleTrackEnd = () => {
+        const nextTrackIndex = (currentTrackIndex + 1) % soundscapes.length;
+        setCurrentTrackIndex(nextTrackIndex);
+    };
 
     // UI handler for the main play/pause button in the modal
     const togglePlayPause = () => {
@@ -3464,10 +3464,8 @@ const SoundscapePlayer = () => {
     // UI handler for selecting a track from the list
     const handleTrackSelect = (index) => {
         if (currentTrackIndex === index) {
-            // If the user clicks the currently active track, just toggle play/pause
             setIsPlaying(!isPlaying);
         } else {
-            // If the user clicks a new track, switch to it and start playing
             setCurrentTrackIndex(index);
             if (!isPlaying) {
                 setIsPlaying(true);
@@ -3478,7 +3476,7 @@ const SoundscapePlayer = () => {
     const styles = {
         floatingButton: {
             position: 'fixed',
-            bottom: '5rem', // Adjusted to not overlap with nav toggle
+            bottom: '5rem', 
             left: '1rem',
             zIndex: 50,
             backgroundColor: 'rgba(17, 24, 39, 0.8)',
@@ -3527,7 +3525,7 @@ const SoundscapePlayer = () => {
 
     return (
         <>
-            <audio ref={audioRef} />
+            <audio ref={audioRef} onEnded={handleTrackEnd} />
 
             <button onClick={() => setIsPlayerOpen(true)} style={styles.floatingButton}>
                 <Music size={24} />
