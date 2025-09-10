@@ -3,7 +3,6 @@ import { initializeApp } from 'firebase/app';
 import { getAuth, onAuthStateChanged, signInAnonymously, signInWithCustomToken } from 'firebase/auth';
 import { getFirestore, doc, setDoc, onSnapshot, updateDoc } from 'firebase/firestore';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-// FIX: Added music-related icons back
 import { Smile, Frown, Meh, Laugh, Angry, Home, LayoutDashboard, BookText, X, PlusCircle, ChevronDown, ChevronUp, MoreVertical, Edit, Trash2, Map, Shield, Zap, Wind, ArrowLeft, Dumbbell, Lock, Star, CheckCircle, ClipboardCheck, Droplets, Sparkles, HeartHandshake, Music, Play, Pause, Volume2, VolumeX } from 'lucide-react';
 import { Toaster, toast } from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -21,7 +20,6 @@ const db = getFirestore(app);
 
 // --- Application Constants ---
 
-// FIX: Added soundscapes constant with your working GitHub URLs
 const soundscapes = [
     {
       title: "Focus Glow Lofi",
@@ -224,7 +222,6 @@ const GameProvider = ({ children }) => {
         showFitnessCompleteModal: false,
     });
     
-    // FIX: Added music player state back
     const [currentTrackIndex, setCurrentTrackIndex] = useState(0);
     const [isPlaying, setIsPlaying] = useState(false);
     const [volume, setVolume] = useState(0.2);
@@ -1086,7 +1083,6 @@ const GameProvider = ({ children }) => {
 
     }, [user, userData, userData?.hydration?.level]);
 
-    // FIX: Added music player state and functions to the context value
     const value = { 
         modalState, openModal, closeModal,
         lastReward, recordMood, 
@@ -3419,25 +3415,70 @@ const usePreloadImages = (urls) => {
     }, [urls]);
 };
 
-// FIX: Added the SoundscapePlayer component
+// EDIT: SoundscapePlayer component updated with Phase 2 playback logic
 const SoundscapePlayer = () => {
     const { isPlaying, setIsPlaying, currentTrackIndex, setCurrentTrackIndex, volume, setVolume, isPlayerOpen, setIsPlayerOpen, audioRef } = useGame();
     const currentTrack = soundscapes[currentTrackIndex];
 
-    // For Phase 1, the playback logic is intentionally minimal.
-    // It only handles UI state changes.
+    // Effect to handle PLAY and PAUSE state changes
+    useEffect(() => {
+        if (audioRef.current) {
+            if (isPlaying) {
+                // The play() method returns a promise which can be rejected if the user
+                // interacts with the page too quickly. We catch this to avoid console errors.
+                audioRef.current.play().catch(error => console.log("Playback was interrupted.", error));
+            } else {
+                audioRef.current.pause();
+            }
+        }
+    }, [isPlaying]);
+
+    // Effect to handle TRACK SELECTION changes
+    useEffect(() => {
+        if (audioRef.current) {
+            // Only change src if it's different to prevent re-loading the same track
+            if (audioRef.current.src !== currentTrack.url) {
+                audioRef.current.src = currentTrack.url;
+            }
+            if (isPlaying) {
+                // When the track changes, and the player is supposed to be playing,
+                // we load the new source and start it.
+                audioRef.current.load(); // Ensures the new source is loaded
+                audioRef.current.play().catch(error => console.log("Playback was interrupted.", error));
+            }
+        }
+    }, [currentTrackIndex]);
+
+    // Effect to handle VOLUME changes
+    useEffect(() => {
+        if (audioRef.current) {
+            audioRef.current.volume = volume;
+        }
+    }, [volume]);
+
+    // UI handler for the main play/pause button in the modal
     const togglePlayPause = () => {
         setIsPlaying(!isPlaying);
     };
 
+    // UI handler for selecting a track from the list
     const handleTrackSelect = (index) => {
-        setCurrentTrackIndex(index);
+        if (currentTrackIndex === index) {
+            // If the user clicks the currently active track, just toggle play/pause
+            setIsPlaying(!isPlaying);
+        } else {
+            // If the user clicks a new track, switch to it and start playing
+            setCurrentTrackIndex(index);
+            if (!isPlaying) {
+                setIsPlaying(true);
+            }
+        }
     };
-
+    
     const styles = {
         floatingButton: {
             position: 'fixed',
-            bottom: '1rem',
+            bottom: '5rem', // Adjusted to not overlap with nav toggle
             left: '1rem',
             zIndex: 50,
             backgroundColor: 'rgba(17, 24, 39, 0.8)',
